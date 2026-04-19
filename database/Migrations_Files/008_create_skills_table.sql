@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS  skills(
+ id INT AUTO_INCREMENT PRIMARY KEY,
+ name varchar(255)    
+)

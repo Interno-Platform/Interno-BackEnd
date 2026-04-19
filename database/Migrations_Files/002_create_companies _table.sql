@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS companies (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    company_name VARCHAR(255) NOT NULL,
+    registration_number VARCHAR(100) UNIQUE,
+    email VARCHAR(255) UNIQUE,
+    phone VARCHAR(50),
+    website VARCHAR(255),
+    address TEXT,
+    city VARCHAR(100),
+    country VARCHAR(100),
+    industry VARCHAR(100),
+    social_media_links JSON,
+    employee_count INT,
+    annual_revenue DECIMAL(15,2),
+    founded_date DATE,
+    logo_url VARCHAR(500),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

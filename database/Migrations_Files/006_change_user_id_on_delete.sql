@@ -1,0 +1,12 @@
+
+ALTER TABLE companies
+ADD CONSTRAINT companies_ibfk_1
+FOREIGN KEY (user_id)
+REFERENCES users(id)
+ON DELETE CASCADE;
+
+ALTER TABLE trainees
+ADD CONSTRAINT trainees_ibfk_1
+FOREIGN KEY (user_id)
+REFERENCES users(id)
+ON DELETE CASCADE;

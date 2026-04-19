@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS contact_us (
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255)  NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    message VARCHAR(1000) NOT NULL
+)

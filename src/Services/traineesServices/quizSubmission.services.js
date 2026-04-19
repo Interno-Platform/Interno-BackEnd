@@ -1,0 +1,222 @@
+const db = require("../../config/database");
+const createError = require("../../utils/createError");
+const { updateTraineeScore } = require("./traineesScores.services");
+const {
+  markApplicationCompleted,
+} = require("../internshipServices/internshipApplications.services");
+
+const submitQuizAnswers = async (traineeId, answers) => {
+  if (!Array.isArray(answers) || answers.length === 0) {
+    throw createError("Answers must be a non-empty array", 400);
+  }
+
+  const validAnswers = answers.every(
+    (answer) => answer.questionId && answer.selectedOptionId,
+  );
+
+  if (!validAnswers) {
+    throw createError(
+      "Each answer must have questionId and selectedOptionId",
+      400,
+    );
+  }
+
+  // Get the skill associated with these questions BEFORE inserting
+  const skillQuery = `
+    SELECT DISTINCT q.skill_id, s.name as skill_name
+    FROM questions q
+    JOIN skills s ON q.skill_id = s.id
+    WHERE q.id IN (${answers.map(() => "?").join(",")})
+  `;
+
+  const [skillResults] = await db.query(
+    skillQuery,
+    answers.map((a) => a.questionId),
+  );
+
+  if (skillResults.length === 0) {
+    throw createError("No valid questions found in submission", 400);
+  }
+
+  // Check if trainee already submitted answers for any of these skills
+  const skillIds = skillResults.map((s) => s.skill_id);
+
+  for (const skillId of skillIds) {
+    
+    const [existingAnswers] = await db.query(
+      `SELECT COUNT(*) as count FROM trainees_answers ta
+       JOIN questions q ON ta.question_id = q.id
+       WHERE ta.trainee_id = ? AND q.skill_id = ?`,
+      [traineeId, skillId],
+    );
+
+    if (existingAnswers[0].count > 0) {
+      const skillName = skillResults.find(
+        (s) => s.skill_id === skillId,
+      )?.skill_name;
+      throw createError(
+        `You have already submitted answers for the skill "${skillName}". Only one submission is allowed per skill.`,
+        400,
+      );
+    }
+  }
+
+  // Insert all answers
+  const values = answers.map((answer) => [
+    traineeId,
+    answer.questionId,
+    answer.selectedOptionId,
+  ]);
+
+  const insertQuery = `
+    INSERT INTO trainees_answers (trainee_id, question_id, selected_option_id)
+    VALUES ?
+  `;
+
+  const [result] = await db.query(insertQuery, [values]);
+
+  if (result.affectedRows === 0) {
+    throw createError("Failed to submit quiz answers", 500);
+  }
+
+  // Update scores for each skill
+  const scoreUpdates = [];
+  for (const skillResult of skillResults) {
+    if (skillResult.skill_id) {
+      const scoreUpdate = await updateTraineeScore(
+        traineeId,
+        skillResult.skill_id,
+      );
+      scoreUpdates.push(scoreUpdate);
+    }
+  }
+
+  return {
+    message: "Quiz submitted successfully",
+    answersCount: result.affectedRows,
+    scoresUpdated: scoreUpdates,
+  };
+};
+
+// Submit exam code solution
+const submitExamSolution = async (
+  traineeId,
+  examId,
+  codeSolution,
+  language,
+) => {
+  if (!codeSolution || codeSolution.trim() === "") {
+    throw createError("Code solution cannot be empty", 400);
+  }
+
+  if (!language) {
+    throw createError("Programming language is required", 400);
+  }
+
+  // Check if exam exists and get internship_id
+  const examQuery = `
+    SELECT id, internship_id FROM internship_exams WHERE id = ?
+  `;
+
+  const [examResult] = await db.query(examQuery, [examId]);
+
+  if (examResult.length === 0) {
+    throw createError("Exam not found", 404);
+  }
+
+  const internshipId = examResult[0].internship_id;
+
+  // Insert or update exam submission
+  const submitQuery = `
+    INSERT INTO exam_submissions (exam_id, trainee_id, code_solution, language)
+    VALUES (?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      code_solution = VALUES(code_solution),
+      language = VALUES(language),
+      submitted_at = CURRENT_TIMESTAMP
+  `;
+
+  const [result] = await db.query(submitQuery, [
+    examId,
+    traineeId,
+    codeSolution,
+    language,
+  ]);
+
+  if (result.affectedRows === 0) {
+    throw createError("Failed to submit exam solution", 500);
+  }
+
+  return {
+    message: "Exam solution submitted successfully",
+    examId,
+    traineeId,
+    language,
+  };
+};
+
+// Mark quiz as completed (after all quiz questions are answered)
+const markQuizCompleted = async (
+  traineeId,
+  examId,
+  quizScore,
+  internshipId = null,
+) => {
+  const query = `
+    INSERT INTO exam_submissions (exam_id, trainee_id, quiz_completed, quiz_score, quiz_submitted_at)
+    VALUES (?, ?, TRUE, ?, CURRENT_TIMESTAMP)
+    ON DUPLICATE KEY UPDATE
+      quiz_completed = TRUE,
+      quiz_score = VALUES(quiz_score),
+      quiz_submitted_at = CURRENT_TIMESTAMP
+  `;
+
+  const [result] = await db.query(query, [examId, traineeId, quizScore]);
+
+  // If internshipId is provided, mark the application as completed
+  if (internshipId) {
+    await markApplicationCompleted(traineeId, internshipId);
+  }
+
+  return {
+    message: "Quiz marked as completed",
+    examId,
+    traineeId,
+    quizScore,
+    quizCompleted: true,
+  };
+};
+// Get trainee's quiz submission status
+const getTraineeQuizStatus = async (traineeId, examId) => {
+  const query = `
+    SELECT 
+      es.id,
+      es.exam_id,
+      es.trainee_id,
+      es.code_solution,
+      es.language,
+      es.quiz_completed,
+      es.quiz_score,
+      es.quiz_submitted_at,
+      es.submitted_at,
+      ie.internship_id
+    FROM exam_submissions es
+    JOIN internship_exams ie ON es.exam_id = ie.id
+    WHERE es.trainee_id = ? AND es.exam_id = ?
+  `;
+
+  const [result] = await db.query(query, [traineeId, examId]);
+
+  if (result.length === 0) {
+    return null;
+  }
+
+  return result[0];
+};
+
+module.exports = {
+  submitQuizAnswers,
+  submitExamSolution,
+  markQuizCompleted,
+  getTraineeQuizStatus,
+};
