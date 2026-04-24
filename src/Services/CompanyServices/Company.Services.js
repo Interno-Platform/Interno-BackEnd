@@ -91,7 +91,9 @@ const addTechnicalExam = async (company_id, parsed) => {
   }
 };
 
-const getInternships = async (company_id) => {
+const getInternships = async (company_id, user_id) => {
+  console.log(user_id);
+  
   if (company_id) {
     const [findCompany] = await db.query(
       `SELECT * FROM companies WHERE id = ?`,
@@ -106,8 +108,8 @@ const getInternships = async (company_id) => {
       `SELECT  companies.company_name , internships.*
    FROM internships
    JOIN companies ON internships.company_id = companies.id
-   WHERE internships.company_id = ?`,
-      [company_id],
+   WHERE internships.company_id = ? AND internships.status = ?`,
+      [company_id, "active"],
     );
 
     if (result.length === 0) {
@@ -115,16 +117,35 @@ const getInternships = async (company_id) => {
     }
     return { data: result };
   } else {
-    const [result] = await db.query(
-      `SELECT  companies.company_name , internships.*
-   FROM internships
-   JOIN companies  ON internships.company_id = companies.id `,
+    let [result] = await db.query(
+    `SELECT 
+    companies.company_name, 
+    internships.*,
+    CASE WHEN internship_applications.trainee_id IS NOT NULL THEN TRUE ELSE FALSE END AS has_apply
+    FROM internships
+    JOIN companies ON internships.company_id = companies.id 
+    JOIN trainees ON trainees.user_id = ?
+    LEFT JOIN internship_applications 
+    ON internships.id = internship_applications.internship_id 
+    AND internship_applications.trainee_id = trainees.id
+    WHERE internships.status = ?`,
+      [user_id, "active"],
     );
 
     if (result.length === 0) {
       throw createError(`no internships found`, 404);
     }
-    return { data: result };
+
+    result = result.map((internship) => {
+      return {
+        ...internship,
+        has_apply: internship.has_apply === 1, 
+      };
+    });
+
+    return {
+      data: result,
+    };
   }
 };
 

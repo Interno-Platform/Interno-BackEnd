@@ -3,6 +3,8 @@ const createError = require("../../utils/createError");
 const internshipQestionsBySkill = require("../../Services/traineesServices/traineeQuestions.services");
 const imagekit = require("../../storage/stroage");
 const path = require("path");
+const { sendEvent } = require('../../config/kafka')
+
 const {
   postSkills,
   getAllSkills,
@@ -55,6 +57,13 @@ const insertSkills = asyncHandler(async (req, res) => {
   }
 
   const result = await postSkills(trainee_id, parsedSkills, cvFileUrl);
+  // inside insertSkills after processing CV:
+  await sendEvent('cv-uploads', {
+    traineeId: req.params.trainee_id,
+    traineeEmail: trainee.email,
+    fileName: req.file.originalname,
+    timestamp: new Date().toISOString()
+  })
   res.json(result);
 });
 

@@ -14,7 +14,8 @@ const createInternships = expressAsyncHandler(async (req, res) => {
 
 const getInternshipsController = expressAsyncHandler(async (req, res) => {
   const { company_id } = req.query;
-  const internships = await getInternships(company_id);
+  const user_id = req.user?.id;
+  const internships = await getInternships(company_id, user_id);
   res.json(internships);
 });
 

@@ -10,8 +10,6 @@ CREATE TABLE trainees_answers (
 
     FOREIGN KEY (trainee_id) REFERENCES trainees(id),
 
-    FOREIGN KEY (question_id) REFERENCES questions(id),
-
-    FOREIGN KEY (selected_option_id) REFERENCES options(id)
+    FOREIGN KEY (question_id) REFERENCES questions(id)
 
 );

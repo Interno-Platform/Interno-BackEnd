@@ -3,6 +3,11 @@ const path = require("path");
 const db = require("../src/config/database");
 require("dotenv").config();
 
+function getMigrationOrder(fileName) {
+  const match = fileName.match(/^(\d+)/);
+  return match ? parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER;
+}
+
 async function runMigrations() {
   console.log("✅ Connected to database\n");
 
@@ -20,7 +25,15 @@ async function runMigrations() {
 
   const migrationsDir = path.join(__dirname, "Migrations_Files");
   const files = await fs.readdir(migrationsDir);
-  const sqlFiles = files.filter((file) => file.endsWith(".sql")).sort();
+  const sqlFiles = files
+    .filter((file) => file.endsWith(".sql"))
+    .sort((a, b) => {
+      const aOrder = getMigrationOrder(a);
+      const bOrder = getMigrationOrder(b);
+
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return a.localeCompare(b);
+    });
 
   console.log(`Found ${sqlFiles.length} migration files`);
   console.log(`Already executed: ${executed.length}\n`);

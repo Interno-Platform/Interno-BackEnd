@@ -6,3 +6,7 @@ CREATE TABLE options (
     FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
 
 );
+
+ALTER TABLE trainees_answers
+ADD CONSTRAINT fk_trainees_answers_selected_option
+FOREIGN KEY (selected_option_id) REFERENCES options(id);

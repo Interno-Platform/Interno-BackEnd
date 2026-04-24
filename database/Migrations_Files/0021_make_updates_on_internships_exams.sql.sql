@@ -8,6 +8,6 @@ ALTER TABLE internship_exams DROP COLUMN level;
 
 ALTER TABLE internship_exams DROP COLUMN duration;
 
-ALTER TABLE internship_exams DROP COLUMN submission_instructions
+ALTER TABLE internship_exams DROP COLUMN submission_instructions;
 
 

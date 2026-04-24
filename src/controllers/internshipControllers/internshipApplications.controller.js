@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const createError = require("../../utils/createError");
 const internshipAppServices = require("../../Services/internshipServices/internshipApplications.services");
+const { sendEvent } = require('../../config/kafka')
 
 const applyForInternshipController = asyncHandler(async (req, res) => {
   const { traineeId, internshipId } = req.body;
@@ -16,6 +17,16 @@ const applyForInternshipController = asyncHandler(async (req, res) => {
     coverLetter,
   );
 
+// inside applyForInternshipController after saving to DB:
+  await sendEvent('internship-applications', {
+    traineeId: req.body.trainee_id,
+    traineeName: trainee.name,
+    traineeEmail: trainee.email,
+    internshipId: req.body.internship_id,
+    internshipTitle: internship.title,
+    companyEmail: company.email,
+    timestamp: new Date().toISOString()
+  })
   res.status(201).json(result);
 });
 
