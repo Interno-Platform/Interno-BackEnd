@@ -118,7 +118,7 @@ const verificationEmailTemplate = (id, verifyCode) => {
 
               <!-- Verify Button -->
               <div style="text-align:center;margin:30px 0;">
-                <a href=${`localhost:3000/api/users/verify-code/${id}/${verifyCode}`} style="
+                <a href=${`${process.env.BASE_URL}/api/users/verify-code/${id}/${verifyCode}`} style="
                   background:#1f7a4d;
                   color:#ffffff;
                   padding:14px 28px;
