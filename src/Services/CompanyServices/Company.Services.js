@@ -24,6 +24,8 @@ const postInternship = async (body, company_id) => {
     );
   }
 
+  const internshipData = parsed.data;
+
   const query = `
     INSERT INTO internships 
       (company_id, title, description, location_type, duration_weeks, seats, deadline,required_skills)
@@ -41,33 +43,32 @@ const postInternship = async (body, company_id) => {
 
   const values = [
     company_id,
-    parsed?.data.title,
-    parsed?.data.description,
-    parsed?.data.location_type,
-    parsed?.data.duration_weeks,
-    parsed?.data.seats,
-    parsed?.data.deadline,
-    parsed?.data?.required_skills,
+    internshipData.title,
+    internshipData.description,
+    internshipData.location_type,
+    internshipData.duration_weeks,
+    internshipData.seats,
+    internshipData.deadline,
+    JSON.stringify(internshipData.required_skills),
   ];
 
   const [result] = await db.execute(query, values);
 
-  const [insetredInternship] = await db.query(
-    `SELECT *  FROM internships WHERE id = ?`,
-    [result.insertId],
-  );
+  const dataForTechExam = {
+    internship_id: result.insertId,
+    ...internshipData,
+  };
 
-  await addTechnicalExam(company_id, parsed);
+  await addTechnicalExam(dataForTechExam);
 
-  return insetredInternship;
+  return {
+    message: "internship created successfully",
+    internship_id: result.insertId,
+  };
 };
 
-const addTechnicalExam = async (company_id, parsed) => {
-  const [internshipData] = await db.execute(
-    `SELECT * FROM internships WHERE company_id = ?`,
-    [company_id],
-  );
-  console.log(parsed);
+const addTechnicalExam = async (dataForTechExam) => {
+
 
   // 5. Insert into DB
   const [result] = await db.query(
@@ -76,13 +77,13 @@ const addTechnicalExam = async (company_id, parsed) => {
      expected_input, expected_output, programmingLanguage) 
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
-      internshipData[0]?.id,
-      parsed?.data?.exam_title,
-      parsed?.data?.exam_description,
-      JSON.stringify(parsed?.data?.requirements),
-      parsed?.data?.expected_input,
-      parsed?.data?.expected_output,
-      parsed?.data?.programmingLanguage,
+      dataForTechExam?.internship_id,
+      dataForTechExam?.exam_title,
+      dataForTechExam?.exam_description,
+      JSON.stringify(dataForTechExam?.requirements),
+      dataForTechExam?.expected_input,
+      dataForTechExam?.expected_output,
+      dataForTechExam?.programmingLanguage,
     ],
   );
 

@@ -135,15 +135,16 @@ const loginService = async (body) => {
   const [user] = await db.execute(userQuery, [email]);
 
   const userLoginData = user[0];
-  if (user.find((e) => e.has_verified === 0)) {
-    throw createError("Please check your email to verify your account.", 400);
-  }
 
-  if (!userLoginData) throw createError("Invalid Credentials", 400);
+  if (!userLoginData) throw createError("user does not exist", 400);
 
   const isMatch = await bycrypt.compare(password, userLoginData.password);
   if (!isMatch) throw createError("Invalid Credentials", 400);
 
+  if (user.find((e) => e.has_verified === 0)) {
+    throw createError("Please check your email to verify your account.", 400);
+  }
+  
   const token = generateJwt(...user, process.env.secret_key);
   const detailsData = await formatRes(user[0]);
   const userData = {
