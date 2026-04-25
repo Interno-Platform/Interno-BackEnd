@@ -18,7 +18,12 @@ redisClient.on("error", (err) => console.log("Redis Client Error", err));
 
 (async () => {
   await redisClient.connect();
-  console.log("Connected to Upstash Redis ✅");
+  if (process.env.NODE_ENV === "development") {
+    console.log("Connected to Redis at 127.0.0.1:6379");
+  }else {
+    console.log(`Connected to Redis at ${process.env.REDIS_URL}`);
+  }
+
 })();
 
 module.exports = redisClient;
