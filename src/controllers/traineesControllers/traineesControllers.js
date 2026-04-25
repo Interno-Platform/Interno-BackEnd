@@ -3,7 +3,8 @@ const createError = require("../../utils/createError");
 const internshipQestionsBySkill = require("../../Services/traineesServices/traineeQuestions.services");
 const imagekit = require("../../storage/stroage");
 const path = require("path");
-const { sendEvent } = require('../../config/kafka')
+const db = require("../../config/database");
+const { sendEvent } = require("../../config/kafka");
 
 const {
   postSkills,
@@ -57,13 +58,20 @@ const insertSkills = asyncHandler(async (req, res) => {
   }
 
   const result = await postSkills(trainee_id, parsedSkills, cvFileUrl);
+  const [traineeRows] = await db.query(
+    `SELECT email FROM trainees WHERE id = ? LIMIT 1`,
+    [trainee_id],
+  );
+
+  const traineeEmail = traineeRows[0]?.email ?? null;
+
   // inside insertSkills after processing CV:
-  await sendEvent('cv-uploads', {
+  await sendEvent("cv-uploads", {
     traineeId: req.params.trainee_id,
-    traineeEmail: trainee.email,
-    fileName: req.file.originalname,
-    timestamp: new Date().toISOString()
-  })
+    traineeEmail,
+    fileName: req.file?.originalname ?? null,
+    timestamp: new Date().toISOString(),
+  });
   res.json(result);
 });
 

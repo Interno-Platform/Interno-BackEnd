@@ -5,6 +5,33 @@ const {
   markApplicationCompleted,
 } = require("../internshipServices/internshipApplications.services");
 
+const getCanonicalSubmissionId = async (examId, traineeId) => {
+  const [rows] = await db.query(
+    `SELECT id
+     FROM exam_submissions
+     WHERE exam_id = ? AND trainee_id = ?
+     ORDER BY id DESC`,
+    [examId, traineeId],
+  );
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const canonicalId = rows[0].id;
+
+  // Clean up historic duplicates and keep the newest submission row.
+  if (rows.length > 1) {
+    await db.query(
+      `DELETE FROM exam_submissions
+       WHERE exam_id = ? AND trainee_id = ? AND id <> ?`,
+      [examId, traineeId, canonicalId],
+    );
+  }
+
+  return canonicalId;
+};
+
 const submitQuizAnswers = async (traineeId, answers) => {
   if (!Array.isArray(answers) || answers.length === 0) {
     throw createError("Answers must be a non-empty array", 400);
@@ -124,24 +151,24 @@ const submitExamSolution = async (
     throw createError("Exam not found", 404);
   }
 
-  const internshipId = examResult[0].internship_id;
+  const canonicalSubmissionId = await getCanonicalSubmissionId(examId, traineeId);
 
-  // Insert or update exam submission
-  const submitQuery = `
-    INSERT INTO exam_submissions (exam_id, trainee_id, code_solution, language)
-    VALUES (?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-      code_solution = VALUES(code_solution),
-      language = VALUES(language),
-      submitted_at = CURRENT_TIMESTAMP
-  `;
+  let result;
 
-  const [result] = await db.query(submitQuery, [
-    examId,
-    traineeId,
-    codeSolution,
-    language,
-  ]);
+  if (canonicalSubmissionId) {
+    [result] = await db.query(
+      `UPDATE exam_submissions
+       SET code_solution = ?, language = ?, submitted_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [codeSolution, language, canonicalSubmissionId],
+    );
+  } else {
+    [result] = await db.query(
+      `INSERT INTO exam_submissions (exam_id, trainee_id, code_solution, language)
+       VALUES (?, ?, ?, ?)`,
+      [examId, traineeId, codeSolution, language],
+    );
+  }
 
   if (result.affectedRows === 0) {
     throw createError("Failed to submit exam solution", 500);
@@ -162,16 +189,30 @@ const markQuizCompleted = async (
   quizScore,
   internshipId = null,
 ) => {
-  const query = `
-    INSERT INTO exam_submissions (exam_id, trainee_id, quiz_completed, quiz_score, quiz_submitted_at)
-    VALUES (?, ?, TRUE, ?, CURRENT_TIMESTAMP)
-    ON DUPLICATE KEY UPDATE
-      quiz_completed = TRUE,
-      quiz_score = VALUES(quiz_score),
-      quiz_submitted_at = CURRENT_TIMESTAMP
-  `;
+  const canonicalSubmissionId = await getCanonicalSubmissionId(examId, traineeId);
 
-  const [result] = await db.query(query, [examId, traineeId, quizScore]);
+  let result;
+
+  if (canonicalSubmissionId) {
+    [result] = await db.query(
+      `UPDATE exam_submissions
+       SET quiz_completed = TRUE,
+           quiz_score = ?,
+           quiz_submitted_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [quizScore, canonicalSubmissionId],
+    );
+  } else {
+    [result] = await db.query(
+      `INSERT INTO exam_submissions (exam_id, trainee_id, quiz_completed, quiz_score, quiz_submitted_at)
+       VALUES (?, ?, TRUE, ?, CURRENT_TIMESTAMP)`,
+      [examId, traineeId, quizScore],
+    );
+  }
+
+  if (result.affectedRows === 0) {
+    throw createError("Failed to mark quiz as completed", 500);
+  }
 
   // If internshipId is provided, mark the application as completed
   if (internshipId) {
@@ -203,6 +244,8 @@ const getTraineeQuizStatus = async (traineeId, examId) => {
     FROM exam_submissions es
     JOIN internship_exams ie ON es.exam_id = ie.id
     WHERE es.trainee_id = ? AND es.exam_id = ?
+    ORDER BY es.id DESC
+    LIMIT 1
   `;
 
   const [result] = await db.query(query, [traineeId, examId]);

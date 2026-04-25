@@ -43,13 +43,16 @@ const applyForInternship = async (
     INSERT INTO internship_applications (
       internship_id,
       trainee_id,
-      cover_letter,
-      reviewed_at
+      status,
+      cover_letter
     )
-    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    VALUES (?, ?, 'applied', ?)
     ON DUPLICATE KEY UPDATE 
+      status = 'applied',
       cover_letter = VALUES(cover_letter),
-      reviewed_at = CURRENT_TIMESTAMP,
+      reviewed_at = NULL,
+      reviewed_by = NULL,
+      notes = NULL,
       applied_at = CURRENT_TIMESTAMP
   `;
 
@@ -67,7 +70,7 @@ const applyForInternship = async (
     message: "Application submitted successfully",
     internshipId: internshipIdNumber,
     traineeId: traineeIdNumber,
-    status: "pending",
+    status: "applied",
   };
 };
 
@@ -95,34 +98,140 @@ const getTraineeApplications = async (traineeId) => {
   return applications;
 };
 
-// Get all applications for an internship (for company review)
-const getInternshipApplications = async (internshipId) => {
+// Get applications for a specific company owned by the logged-in company user
+const getInternshipApplications = async (companyId, userId) => {
+  if (!userId) {
+    throw createError("User authentication required", 401);
+  }
+
+  let companyIdNumber = null;
+
+  if (companyId !== undefined && companyId !== null && companyId !== "") {
+    companyIdNumber = Number(companyId);
+    if (!Number.isInteger(companyIdNumber) || companyIdNumber <= 0) {
+      throw createError("Invalid companyId. It must be a positive integer", 400);
+    }
+  }
+
+  const [companyRows] = await db.query(
+    `
+      SELECT c.id
+      FROM companies c
+      JOIN users u ON u.id = c.user_id
+      WHERE u.id = ?
+        AND (? IS NULL OR c.id = ?)
+      LIMIT 1
+    `,
+    [userId, companyIdNumber, companyIdNumber],
+  );
+
+  if (companyRows.length === 0) {
+    throw createError(
+      "This company does not belong to the logged-in user",
+      403,
+    );
+  }
+
+  const resolvedCompanyId = companyRows[0].id;
+
   const query = `
     SELECT 
-      ia.id,
+      ia.id AS application_id,
+      ia.internship_id,
+      i.title AS internship_title,
+      i.company_id,
       ia.trainee_id,
-      i.title,
       ia.status,
       ia.applied_at,
       ia.reviewed_at,
       ia.cover_letter,
       ia.notes,
-      t.name,
-      t.email,
-      t.phone,
-      t.university,
-      t.major,
-      t.cv_file,
-      t.profile_picture
+      t.name AS trainee_name,
+      t.email AS trainee_email,
+      t.phone AS trainee_phone,
+      t.gender AS trainee_gender,
+      t.city AS trainee_city,
+      t.university AS trainee_university,
+      t.major AS trainee_major,
+      t.graduation_year AS trainee_graduation_year,
+      t.skills AS trainee_skills,
+      t.cv_file AS trainee_cv_file,
+      t.profile_picture AS trainee_profile_picture,
+      t.created_at AS trainee_created_at,
+      t.updated_at AS trainee_updated_at,
+      es.quiz_score,
+      es.quiz_completed,
+      es.quiz_submitted_at,
+      es.code_solution AS submitted_code,
+      es.code_language,
+      es.code_submitted_at
     FROM internship_applications ia
     JOIN trainees t ON ia.trainee_id = t.id
     JOIN internships i ON ia.internship_id = i.id
-    WHERE ia.internship_id = ?
-    ORDER BY ia.applied_at DESC
+    JOIN companies c ON i.company_id = c.id
+    JOIN users u ON c.user_id = u.id
+    LEFT JOIN (
+      SELECT
+        ie.internship_id,
+        sub.trainee_id,
+        sub.quiz_score,
+        sub.quiz_completed,
+        sub.quiz_submitted_at,
+        sub.code_solution,
+        sub.language AS code_language,
+        sub.submitted_at AS code_submitted_at
+      FROM internship_exams ie
+      JOIN exam_submissions sub ON sub.exam_id = ie.id
+      JOIN (
+        SELECT
+          ie2.internship_id,
+          sub2.trainee_id,
+          MAX(sub2.id) AS latest_submission_id
+        FROM internship_exams ie2
+        JOIN exam_submissions sub2 ON sub2.exam_id = ie2.id
+        GROUP BY ie2.internship_id, sub2.trainee_id
+      ) latest_sub
+        ON latest_sub.latest_submission_id = sub.id
+       AND latest_sub.internship_id = ie.internship_id
+       AND latest_sub.trainee_id = sub.trainee_id
+    ) es ON es.internship_id = ia.internship_id AND es.trainee_id = ia.trainee_id
+    WHERE c.id = ?
+      AND u.id = ?
+    ORDER BY ia.applied_at DESC, ia.id DESC
   `;
 
-  const [applications] = await db.query(query, [internshipId]);
+  const [applications] = await db.query(query, [
+    resolvedCompanyId,
+    userId,
+  ]);
   return applications;
+};
+
+// Get technical exam for an internship
+const getInternshipTechExam = async (internshipId) => {
+  const query = `
+    SELECT 
+      id,
+      internship_id,
+      exam_title,
+      exam_description,
+      requirements,
+      expected_input,
+      expected_output,
+      programmingLanguage,
+      created_at
+    FROM internship_exams
+    WHERE internship_id = ?
+    LIMIT 1
+  `;
+
+  const [exams] = await db.query(query, [internshipId]);
+
+  if (exams.length === 0) {
+    throw createError("Tech exam not found for this internship", 404);
+  }
+
+  return exams[0];
 };
 
 // Review application (accept/reject)
@@ -209,6 +318,7 @@ module.exports = {
   applyForInternship,
   getTraineeApplications,
   getInternshipApplications,
+  getInternshipTechExam,
   reviewApplication,
   markApplicationCompleted,
   deleteInternship,

@@ -93,7 +93,7 @@ const addTechnicalExam = async (company_id, parsed) => {
 
 const getInternships = async (company_id, user_id) => {
   console.log(user_id);
-  
+
   if (company_id) {
     const [findCompany] = await db.query(
       `SELECT * FROM companies WHERE id = ?`,
@@ -118,16 +118,39 @@ const getInternships = async (company_id, user_id) => {
     return { data: result };
   } else {
     let [result] = await db.query(
-    `SELECT 
+      `SELECT 
     companies.company_name, 
     internships.*,
-    CASE WHEN internship_applications.trainee_id IS NOT NULL THEN TRUE ELSE FALSE END AS has_apply
+    CASE WHEN EXISTS (
+      SELECT 1
+      FROM internship_applications ia
+      WHERE ia.internship_id = internships.id
+      AND ia.trainee_id = trainee_ctx.id
+    ) THEN TRUE ELSE FALSE END AS has_apply,
+    CASE WHEN EXISTS (
+      SELECT 1
+      FROM internship_exams ie
+      JOIN exam_submissions es ON es.exam_id = ie.id
+      WHERE ie.internship_id = internships.id
+      AND es.trainee_id = trainee_ctx.id
+      AND COALESCE(es.quiz_completed, FALSE) = TRUE
+    ) THEN TRUE ELSE FALSE END AS quiz_completed,
+    CASE WHEN EXISTS (
+      SELECT 1
+      FROM internship_exams ie
+      JOIN exam_submissions es ON es.exam_id = ie.id
+      WHERE ie.internship_id = internships.id
+      AND es.trainee_id = trainee_ctx.id
+      AND es.code_solution IS NOT NULL
+      AND TRIM(es.code_solution) <> ''
+    ) THEN TRUE ELSE FALSE END AS tech_completed
     FROM internships
     JOIN companies ON internships.company_id = companies.id 
-    JOIN trainees ON trainees.user_id = ?
-    LEFT JOIN internship_applications 
-    ON internships.id = internship_applications.internship_id 
-    AND internship_applications.trainee_id = trainees.id
+    LEFT JOIN (
+      SELECT MIN(id) AS id
+      FROM trainees
+      WHERE user_id = ?
+    ) AS trainee_ctx ON 1 = 1
     WHERE internships.status = ?`,
       [user_id, "active"],
     );
@@ -136,15 +159,37 @@ const getInternships = async (company_id, user_id) => {
       throw createError(`no internships found`, 404);
     }
 
-    result = result.map((internship) => {
+    const normalized = result.map((internship) => {
       return {
         ...internship,
-        has_apply: internship.has_apply === 1, 
+        has_apply: internship.has_apply === 1 || internship.has_apply === true,
+        quiz_completed:
+          internship.quiz_completed === 1 || internship.quiz_completed === true,
+        tech_completed:
+          internship.tech_completed === 1 || internship.tech_completed === true,
       };
     });
 
+    const deduped = new Map();
+
+    normalized.forEach((internship) => {
+      const existing = deduped.get(internship.id);
+
+      if (!existing) {
+        deduped.set(internship.id, internship);
+        return;
+      }
+
+      deduped.set(internship.id, {
+        ...existing,
+        has_apply: existing.has_apply || internship.has_apply,
+        quiz_completed: existing.quiz_completed || internship.quiz_completed,
+        tech_completed: existing.tech_completed || internship.tech_completed,
+      });
+    });
+
     return {
-      data: result,
+      data: Array.from(deduped.values()),
     };
   }
 };

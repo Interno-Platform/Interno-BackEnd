@@ -1,7 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const createError = require("../../utils/createError");
 const internshipAppServices = require("../../Services/internshipServices/internshipApplications.services");
-const { sendEvent } = require('../../config/kafka')
+const { sendEvent } = require("../../config/kafka");
 
 const applyForInternshipController = asyncHandler(async (req, res) => {
   const { traineeId, internshipId } = req.body;
@@ -17,16 +17,12 @@ const applyForInternshipController = asyncHandler(async (req, res) => {
     coverLetter,
   );
 
-// inside applyForInternshipController after saving to DB:
-  await sendEvent('internship-applications', {
-    traineeId: req.body.trainee_id,
-    traineeName: trainee.name,
-    traineeEmail: trainee.email,
-    internshipId: req.body.internship_id,
-    internshipTitle: internship.title,
-    companyEmail: company.email,
-    timestamp: new Date().toISOString()
-  })
+  await sendEvent("internship-applications", {
+    traineeId: result.traineeId,
+    internshipId: result.internshipId,
+    status: result.status,
+    timestamp: new Date().toISOString(),
+  });
   res.status(201).json(result);
 });
 
@@ -47,21 +43,62 @@ const getTraineeApplicationsController = asyncHandler(async (req, res) => {
     data: applications,
   });
 });
-// get applications for an internship (for company/ HR)
+// get all company applications (for company/ HR)
 const getInternshipApplicationsController = asyncHandler(async (req, res) => {
+  const { companyId } = req.params;
+  const userId = req.user?.id;
+  const role = req.user?.role;
+
+  if (!companyId) {
+    throw createError("companyId is required", 400);
+  }
+
+  if (role !== "company") {
+    throw createError("Only company users can access this endpoint", 403);
+  }
+
+  const applications =
+    await internshipAppServices.getInternshipApplications(companyId, userId);
+
+  res.json({
+    message: "Applications retrieved successfully",
+    count: applications.length,
+    data: applications,
+  });
+});
+
+// get all applications for the logged-in company (no companyId in params)
+const getMyCompanyApplicationsController = asyncHandler(async (req, res) => {
+  const userId = req.user?.id;
+  const role = req.user?.role;
+
+  if (role !== "company") {
+    throw createError("Only company users can access this endpoint", 403);
+  }
+
+  const applications =
+    await internshipAppServices.getInternshipApplications(null, userId);
+
+  res.json({
+    message: "Applications retrieved successfully",
+    count: applications.length,
+    data: applications,
+  });
+});
+
+const getInternshipTechExamController = asyncHandler(async (req, res) => {
   const { internshipId } = req.params;
 
   if (!internshipId) {
     throw createError("internshipId is required", 400);
   }
 
-  const applications =
-    await internshipAppServices.getInternshipApplications(internshipId);
+  const techExam =
+    await internshipAppServices.getInternshipTechExam(internshipId);
 
   res.json({
-    message: "Applications retrieved successfully",
-    count: applications.length,
-    data: applications,
+    message: "Tech exam retrieved successfully",
+    data: techExam,
   });
 });
 
@@ -107,6 +144,8 @@ module.exports = {
   applyForInternshipController,
   getTraineeApplicationsController,
   getInternshipApplicationsController,
+  getMyCompanyApplicationsController,
+  getInternshipTechExamController,
   reviewApplicationController,
-  deleteInternship
+  deleteInternship,
 };
