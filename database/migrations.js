@@ -64,4 +64,24 @@ async function runMigrations() {
   console.log("All migrations completed successfully!");
 }
 
-runMigrations();
+runMigrations()
+  .then(async () => {
+    try {
+      await db.end();
+    } catch (e) {
+      console.error("Error closing DB:", e.message);
+    }
+
+    process.exit(0);
+  })
+  .catch(async (error) => {
+    console.error("Migration process failed:", error.message);
+
+    try {
+      await db.end();
+    } catch (e) {
+      console.error("Error closing DB:", e.message);
+    }
+
+    process.exit(1);
+  });
