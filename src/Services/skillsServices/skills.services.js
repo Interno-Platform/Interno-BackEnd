@@ -4,6 +4,14 @@ const createError = require("../../utils/createError");
 const DEFAULT_QUESTIONS_PER_SKILL = 10;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
+const toCanonicalSkillKey = (skill) =>
+  String(skill || "")
+    .toLowerCase()
+    .replace(/\./g, " ")
+    .split(/\s+/)
+    .join("")
+    .trim();
+
 const normalizeSkill = (skill) =>
   String(skill || "")
     .trim()
@@ -41,7 +49,7 @@ const toUniqueNormalizedSkills = (skills = []) => {
     .map((skill) => String(skill || "").trim())
     .filter(Boolean)
     .filter((skill) => {
-      const normalized = normalizeSkill(skill);
+      const normalized = toCanonicalSkillKey(skill);
       if (seen.has(normalized)) {
         return false;
       }
@@ -49,6 +57,31 @@ const toUniqueNormalizedSkills = (skills = []) => {
       seen.add(normalized);
       return true;
     });
+};
+
+const resolveExistingAndNewSkills = async (normalizedSkills) => {
+  const [allExistingSkills] = await db.query("SELECT id, name FROM skills");
+
+  const existingByCanonical = new Map(
+    allExistingSkills.map((skill) => [toCanonicalSkillKey(skill.name), skill]),
+  );
+
+  const existing = [];
+  const newSkills = [];
+
+  normalizedSkills.forEach((skillName) => {
+    const canonical = toCanonicalSkillKey(skillName);
+    const matchedSkill = existingByCanonical.get(canonical);
+
+    if (matchedSkill) {
+      existing.push(matchedSkill);
+      return;
+    }
+
+    newSkills.push(skillName);
+  });
+
+  return { existing, newSkills };
 };
 
 const extractJsonArray = (text) => {
@@ -178,7 +211,14 @@ Rules:
       throw error;
     }
 
-    throw createError(`Failed to generate questions: ${error.message}`, 502);
+    const networkCode =
+      error?.cause?.code || error?.code || error?.cause?.errno || "unknown";
+    const networkMessage = error?.cause?.message || error?.message || "unknown";
+
+    throw createError(
+      `Failed to generate questions for ${skillName}. Network/API error (${networkCode}): ${networkMessage}`,
+      502,
+    );
   }
 };
 
@@ -226,23 +266,15 @@ const addSkillsToTrainee = async (traineeId, skills) => {
     throw createError("skills must contain at least one non-empty value", 400);
   }
 
-  const placeholders = normalizedSkills.map(() => `LOWER(TRIM(?))`).join(", ");
-  const [existing] = await db.query(
-    `SELECT id, name FROM skills WHERE LOWER(TRIM(name)) IN (${placeholders})`,
-    normalizedSkills,
-  );
-
-  const existingNames = existing.map((s) => s.name.toLowerCase().trim());
-  const newSkills = normalizedSkills.filter(
-    (s) => !existingNames.includes(s.toLowerCase().trim()),
-  );
+  const { existing, newSkills } =
+    await resolveExistingAndNewSkills(normalizedSkills);
 
   let allSkills = [...existing];
 
   if (newSkills.length > 0) {
     const insertPlaceholders = newSkills.map(() => `(?)`).join(", ");
 
-     await db.query(
+    await db.query(
       `INSERT INTO skills (name) VALUES ${insertPlaceholders}`,
       newSkills,
     );
@@ -276,6 +308,47 @@ const addSkillsToTrainee = async (traineeId, skills) => {
   return allSkills;
 };
 
+const addSkillsFromCompany = async (skills) => {
+  const normalizedSkills = toUniqueNormalizedSkills(skills);
+
+  if (normalizedSkills.length === 0) {
+    throw createError("skills must contain at least one non-empty value", 400);
+  }
+
+  const { existing, newSkills } =
+    await resolveExistingAndNewSkills(normalizedSkills);
+
+  if (newSkills.length === 0 && existing.length > 0) {
+    const existingNames = existing.map((skill) => skill.name).join(", ");
+    throw createError(`This skill already exists: ${existingNames}`, 409);
+  }
+
+  let allSkills = [...existing];
+
+  if (newSkills.length > 0) {
+    const insertPlaceholders = newSkills.map(() => `(?)`).join(", ");
+
+    await db.query(
+      `INSERT INTO skills (name) VALUES ${insertPlaceholders}`,
+      newSkills,
+    );
+
+    const newPlaceholders = newSkills.map(() => `LOWER(TRIM(?))`).join(", ");
+    const [insertedSkillsRows] = await db.query(
+      `SELECT id, name FROM skills WHERE LOWER(TRIM(name)) IN (${newPlaceholders})`,
+      newSkills,
+    );
+
+    allSkills = [...allSkills, ...insertedSkillsRows];
+  }
+
+  for (const skill of allSkills) {
+    await insertQuestionsForSkill(skill.id, skill.name);
+  }
+
+  return allSkills;
+};
+
 //get all skills in the system, ordered by name
 const getAllSkills = async () => {
   const [skills] = await db.query("SELECT id, name FROM skills ORDER BY name");
@@ -284,7 +357,10 @@ const getAllSkills = async () => {
 
 // get all skills for a specific trainee, ordered by name.
 const getAllTraineerSkills = async (traineeId) => {
-  const [skills] = await db.query("SELECT id, name FROM trainees_skills ts JOIN skills s ON ts.skill_id = s.id  WHERE trainee_id = ? ORDER BY name", [traineeId]);
+  const [skills] = await db.query(
+    "SELECT id, name FROM trainees_skills ts JOIN skills s ON ts.skill_id = s.id  WHERE trainee_id = ? ORDER BY name",
+    [traineeId],
+  );
   if (skills.length === 0) {
     throw createError("No skills found for this trainee", 404);
   }
@@ -293,6 +369,7 @@ const getAllTraineerSkills = async (traineeId) => {
 
 module.exports = {
   addSkillsToTrainee,
+  addSkillsFromCompany,
   getAllSkills,
   getAllTraineerSkills,
 };

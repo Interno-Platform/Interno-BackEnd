@@ -3,6 +3,26 @@ const {
   internshipWithExamSchema,
 } = require("../../Validations/internshipsSchema");
 const db = require("../../config/database");
+const { addSkillsFromCompany } = require("../skillsServices/skills.services");
+
+const parseSkillsValue = (skills) => {
+  if (Array.isArray(skills)) {
+    return skills;
+  }
+
+  if (typeof skills === "string") {
+    try {
+      const parsedSkills = JSON.parse(skills);
+      if (Array.isArray(parsedSkills)) {
+        return parsedSkills;
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  return null;
+};
 
 const postInternship = async (body, company_id) => {
   // check if company already exist
@@ -193,4 +213,31 @@ const getInternships = async (company_id, user_id) => {
   }
 };
 
-module.exports = { postInternship, getInternships, addTechnicalExam };
+const postCompanySkills = async (companyId, skills) => {
+  const [findCompany] = await db.query(`SELECT * FROM companies WHERE id = ?`, [
+    companyId,
+  ]);
+
+  if (findCompany.length === 0) {
+    throw createError(`company(id) is invalid or company does not exist`, 404);
+  }
+
+  const parsedSkills = parseSkillsValue(skills);
+
+  if (!parsedSkills || parsedSkills.length === 0) {
+    throw createError("skills must be a non-empty array", 400);
+  }
+
+  await addSkillsFromCompany(parsedSkills);
+
+  return {
+    message: "skills has inserted successfully",
+  };
+};
+
+module.exports = {
+  postInternship,
+  getInternships,
+  addTechnicalExam,
+  postCompanySkills,
+};
