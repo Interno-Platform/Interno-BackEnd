@@ -69,7 +69,6 @@ const submitQuizAnswers = async (traineeId, answers) => {
   const skillIds = skillResults.map((s) => s.skill_id);
 
   for (const skillId of skillIds) {
-    
     const [existingAnswers] = await db.query(
       `SELECT COUNT(*) as count FROM trainees_answers ta
        JOIN questions q ON ta.question_id = q.id
@@ -151,7 +150,10 @@ const submitExamSolution = async (
     throw createError("Exam not found", 404);
   }
 
-  const canonicalSubmissionId = await getCanonicalSubmissionId(examId, traineeId);
+  const canonicalSubmissionId = await getCanonicalSubmissionId(
+    examId,
+    traineeId,
+  );
 
   let result;
 
@@ -189,7 +191,10 @@ const markQuizCompleted = async (
   quizScore,
   internshipId = null,
 ) => {
-  const canonicalSubmissionId = await getCanonicalSubmissionId(examId, traineeId);
+  const canonicalSubmissionId = await getCanonicalSubmissionId(
+    examId,
+    traineeId,
+  );
 
   let result;
 
