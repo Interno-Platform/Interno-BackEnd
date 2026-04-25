@@ -68,8 +68,6 @@ const postInternship = async (body, company_id) => {
 };
 
 const addTechnicalExam = async (dataForTechExam) => {
-
-
   // 5. Insert into DB
   const [result] = await db.query(
     `INSERT INTO internship_exams 
