@@ -30,19 +30,19 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 // Add this before app.listen
-// const startKafka = async () => {
-//   await connectMongoDB(); // ← add this line first
+const startKafka = async () => {
+  await connectMongoDB(); // ← add this line first
 
-//   await connectProducer();
+  await connectProducer();
 
-//   // ⏳ wait for Kafka to be ready
-//   setTimeout(async () => {
-//     await startConsumers();
-//     console.log("Kafka consumers started");
-//   }, 5000);
-// };
+  // ⏳ wait for Kafka to be ready
+  setTimeout(async () => {
+    await startConsumers();
+    console.log("Kafka consumers started");
+  }, 5000);
+};
 
-// startKafka().catch(console.error);
+startKafka().catch(console.error);
 app.listen(PORT, () => {
   console.log(`server running on port ${PORT}`);
 });
