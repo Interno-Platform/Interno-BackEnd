@@ -1,0 +1,1 @@
+ALTER TABLE companies ADD COLUMN admin_note TEXT;

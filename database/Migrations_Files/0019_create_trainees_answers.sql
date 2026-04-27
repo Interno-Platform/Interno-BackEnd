@@ -1,4 +1,4 @@
-CREATE TABLE trainees_answers (
+CREATE TABLE IF NOT EXISTS trainees_answers (
 
     answer_id INT PRIMARY KEY AUTO_INCREMENT,
 

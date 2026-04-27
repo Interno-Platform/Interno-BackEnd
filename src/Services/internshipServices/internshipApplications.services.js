@@ -1,5 +1,6 @@
 const db = require("../../config/database");
 const createError = require("../../utils/createError");
+const { applicationStatusEmail } = require("../emailServices/internships.emails");
 
 // Apply for an internship
 const applyForInternship = async (
@@ -258,13 +259,31 @@ const reviewApplication = async (
     applicationId,
   ]);
 
+  const [findApplication] = await db.query(
+    `SELECT internships.title , companies.company_name , trainees.name ,trainees.email
+     FROM internship_applications ia
+     JOIN internships  ON  internships.id = ia.internship_id
+     JOIN companies ON companies.id = internships.company_id
+     JOIN trainees ON trainees.id = ia.trainee_id
+     WHERE ia.id = ? `,
+    [applicationId],
+  );
+
+  await applicationStatusEmail(
+    findApplication[0].name,
+    findApplication[0].title,
+    findApplication[0].company_name,
+    status,
+    notes,
+    findApplication[0].email,
+  );
+
   if (result.affectedRows === 0) {
     throw createError("Application not found", 404);
   }
 
   return {
     message: `Application ${status} successfully`,
-    applicationId,
     status,
   };
 };
@@ -314,6 +333,7 @@ const deleteInternship = async (internshipId) => {
     internshipId,
   };
 };
+
 module.exports = {
   applyForInternship,
   getTraineeApplications,

@@ -18,6 +18,7 @@ const approvedCompanies = async () => {
   if (result.length === 0) {
     throw createError("there is no approved companies yet", 404);
   }
+  
   const finalResult = result.map(({ approved, ...rest }) => rest);
   return finalResult;
 };
@@ -61,9 +62,9 @@ const companyStatusService = async (company_id, status) => {
   return message;
 };
 
-const changeInternshipStatus = async (company_id, status) => {
-  const query = `UPDATE internships SET status = ? WHERE company_id =?`;
-  const [result] = await db.execute(query, [status, company_id]);
+const changeInternshipStatus = async (company_id, status, internship_id) => {
+  const query = `UPDATE internships SET status = ? WHERE company_id =? AND id = ?`;
+  const [result] = await db.execute(query, [status, company_id , internship_id]);
 
   if (result.affectedRows === 0) {
     throw createError("invalid company(id)", 404);

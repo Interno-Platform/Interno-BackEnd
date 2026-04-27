@@ -1,4 +1,4 @@
-CREATE TABLE options (
+CREATE TABLE IF NOT EXISTS options (
     id INT PRIMARY KEY AUTO_INCREMENT,
     question_id INT,
     option_text TEXT NOT NULL,
