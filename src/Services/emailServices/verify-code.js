@@ -2,7 +2,9 @@ const sendEmail = require("./Email.services");
 const createError = require("../../utils/createError");
 const {
   verificationEmailTemplate,
-  welacomeEmailTemplate,
+  traineeWelcomeEmailTemplate,
+  emailVerificationSuccessPageTrainee,
+  emailVerificationSuccessPageCompany,
 } = require("../../utils/email.template");
 const crypto = require("crypto");
 const insertTraineeOrCompany = require("../usersServices/insertTrainees-compaines");
@@ -18,7 +20,7 @@ const sentVerifyAccountEmail = async (id, email) => {
     JSON.stringify({ ...parseData, activateCode: verifyCode }),
   );
   const emailTempalte = verificationEmailTemplate(id, verifyCode);
-  await sendEmail(email, "verify Your Account", emailTempalte);
+  await sendEmail(email, "Verify Your Account", emailTempalte);
 };
 
 const activateEmail = async (params) => {
@@ -40,20 +42,36 @@ const activateEmail = async (params) => {
   const parsedLink = parseCachedData.activateCode;
 
   if (parsedLink && parsedLink === token) {
-    const activateQuery = `Update users SET has_verified = ?  WHERE id= ?`;
+    // Mark email as verified
+    const activateQuery = `UPDATE users SET has_verified = ? WHERE id = ?`;
     await db.execute(activateQuery, [1, user_id]);
   }
 
-  await insertTraineeOrCompany({ ...parseCachedData.body, id: user_id });
+  const userData = parseCachedData.body;
+  const role = userData.role;
 
-  const welacomeEmail = welacomeEmailTemplate();
+  // Insert trainee or company record
+  await insertTraineeOrCompany({ ...userData, id: user_id });
 
-  await sendEmail(
-    parseCachedData?.body.email,
-    "welcome in Interno",
-    welacomeEmail,
-  );
+  // Send welcome email only for trainees (not for companies - they're under review)
+  if (role === "trainee") {
+    const welcomeEmail = traineeWelcomeEmailTemplate(userData.name);
+    await sendEmail(userData.email, "Welcome to Interno!", welcomeEmail);
+  }
+
+  // Return HTML page (different for trainee vs company)
+  const htmlPage =
+    role === "trainee"
+      ? emailVerificationSuccessPageTrainee()
+      : emailVerificationSuccessPageCompany();
+
   await redisClient.del(stringId);
+
+  return {
+    success: true,
+    htmlPage: htmlPage,
+    userRole: role,
+  };
 };
 
 module.exports = { sentVerifyAccountEmail, activateEmail };

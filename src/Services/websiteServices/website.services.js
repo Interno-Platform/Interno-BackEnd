@@ -1,6 +1,8 @@
 const db = require("../../config/database");
 const createError = require("../../utils/createError");
 const { contactUsSchema } = require("../../Validations/websiteValidation");
+const { sentContactUsEmail } = require("../emailServices/approval.emails");
+
 const contactUsService = async (body) => {
   const parsedBody = contactUsSchema.safeParse(body);
 
@@ -19,6 +21,9 @@ const contactUsService = async (body) => {
 
   if (result.affectedRows.length === 0)
     throw createError(" Failed to send message", 400);
+
+  await sentContactUsEmail(parsedBody.data.name, parsedBody.data.email);
+  
   return result;
 };
  const getAllContactUsMessagesService = async () => {

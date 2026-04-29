@@ -113,10 +113,12 @@ const addTechnicalExam = async (dataForTechExam) => {
 const getInternships = async (company_id, user_id) => {
   console.log(user_id);
 
-  if (company_id) {
+  if (user_id) {
     const [findCompany] = await db.query(
-      `SELECT * FROM companies WHERE id = ?`,
-      [company_id],
+      `SELECT * FROM companies
+      JOIN users ON companies.user_id = users.id
+       WHERE users.id = ?`,
+      [user_id],
     );
 
     if (findCompany.length === 0) {
@@ -127,8 +129,9 @@ const getInternships = async (company_id, user_id) => {
       `SELECT  companies.company_name , internships.*
    FROM internships
    JOIN companies ON internships.company_id = companies.id
-   WHERE internships.company_id = ? AND internships.status = ?`,
-      [company_id, "active"],
+   JOIN users ON companies.user_id = users.id
+   WHERE users.id = ? AND internships.status = ?`,
+      [user_id, "active"],
     );
 
     if (result.length === 0) {

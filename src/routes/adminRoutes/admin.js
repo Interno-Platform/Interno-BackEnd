@@ -2,22 +2,32 @@ const express = require("express");
 const router = express.Router();
 const {
   approveCompany,
+  rejectCompany,
   getAprrovedCompanies,
   changeCompanyStatus,
   getPendingCompanies,
+  getRejectedCompaniesController,
   getTraineesForAdmin,
   changeinternshipstatus,
-  getPendingInternshipsController
+  getPendingInternshipsController,
 } = require("../../controllers/adminControllers/adminController");
-const { getPendingInternships } = require("../../Services/adminServices/admin.services");
+const {
+  getPendingInternships,
+} = require("../../Services/adminServices/admin.services");
+
+// Company approval/rejection routes
 router.post("/approve-company/:company_id", approveCompany);
+router.post("/reject-company/:company_id", rejectCompany);
 router.get("/approved-companies", getAprrovedCompanies);
 router.get("/pending-companies", getPendingCompanies);
+router.get("/rejected-companies", getRejectedCompaniesController);
+
+// Other admin routes
 router.get("/trainees", getTraineesForAdmin);
 router.post("/account-status/:company_id", changeCompanyStatus);
 router.post("/internship-status", changeinternshipstatus);
 router.get("/pending-internships", getPendingInternshipsController);
 
-// router.Access_Role = ["admin"];
+router.Access_Role = ["admin"];
 router.message = "only admin can access to this request";
 module.exports = router;
