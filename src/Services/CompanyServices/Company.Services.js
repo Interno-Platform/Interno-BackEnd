@@ -110,110 +110,79 @@ const addTechnicalExam = async (dataForTechExam) => {
   }
 };
 
-const getInternships = async (company_id, user_id) => {
-  console.log(user_id);
+const getInternships = async (user_id) => {
+  // نحدد هل اليوزر شركة ولا لا
+  let companyFilter = "";
+  let params = [user_id || null, "active"];
 
   if (user_id) {
-    const [findCompany] = await db.query(
-      `SELECT * FROM companies
-      JOIN users ON companies.user_id = users.id
-       WHERE users.id = ?`,
-      [user_id],
+    const [company] = await db.query(
+      `SELECT id FROM companies WHERE user_id = ?`,
+      [user_id]
     );
 
-    if (findCompany.length === 0) {
-      throw createError(`company(id) is invalid`, 404);
+    // لو شركة → فلترة
+    if (company.length > 0) {
+      companyFilter = "AND companies.user_id = ?";
+      params.push(user_id);
     }
+  }
 
-    const [result] = await db.query(
-      `SELECT  companies.company_name , internships.*
-   FROM internships
-   JOIN companies ON internships.company_id = companies.id
-   JOIN users ON companies.user_id = users.id
-   WHERE users.id = ? AND internships.status = ?`,
-      [user_id, "active"],
-    );
+  let [result] = await db.query(
+    `SELECT 
+      companies.company_name, 
+      internships.*,
 
-    if (result.length === 0) {
-      throw createError(`no internships for this company`, 404);
-    }
-    return { data: result };
-  } else {
-    let [result] = await db.query(
-      `SELECT 
-    companies.company_name, 
-    internships.*,
-    CASE WHEN EXISTS (
-      SELECT 1
-      FROM internship_applications ia
-      WHERE ia.internship_id = internships.id
-      AND ia.trainee_id = trainee_ctx.id
-    ) THEN TRUE ELSE FALSE END AS has_apply,
-    CASE WHEN EXISTS (
-      SELECT 1
-      FROM internship_exams ie
-      JOIN exam_submissions es ON es.exam_id = ie.id
-      WHERE ie.internship_id = internships.id
-      AND es.trainee_id = trainee_ctx.id
-      AND COALESCE(es.quiz_completed, FALSE) = TRUE
-    ) THEN TRUE ELSE FALSE END AS quiz_completed,
-    CASE WHEN EXISTS (
-      SELECT 1
-      FROM internship_exams ie
-      JOIN exam_submissions es ON es.exam_id = ie.id
-      WHERE ie.internship_id = internships.id
-      AND es.trainee_id = trainee_ctx.id
-      AND es.code_solution IS NOT NULL
-      AND TRIM(es.code_solution) <> ''
-    ) THEN TRUE ELSE FALSE END AS tech_completed
+      CASE WHEN trainee_ctx.id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM internship_applications ia
+        WHERE ia.internship_id = internships.id
+        AND ia.trainee_id = trainee_ctx.id
+      ) THEN TRUE ELSE FALSE END AS has_apply,
+
+      CASE WHEN trainee_ctx.id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM internship_exams ie
+        JOIN exam_submissions es ON es.exam_id = ie.id
+        WHERE ie.internship_id = internships.id
+        AND es.trainee_id = trainee_ctx.id
+        AND COALESCE(es.quiz_completed, FALSE) = TRUE
+      ) THEN TRUE ELSE FALSE END AS quiz_completed,
+
+      CASE WHEN trainee_ctx.id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM internship_exams ie
+        JOIN exam_submissions es ON es.exam_id = ie.id
+        WHERE ie.internship_id = internships.id
+        AND es.trainee_id = trainee_ctx.id
+        AND es.code_solution IS NOT NULL
+        AND TRIM(es.code_solution) <> ''
+      ) THEN TRUE ELSE FALSE END AS tech_completed
+
     FROM internships
     JOIN companies ON internships.company_id = companies.id 
+
     LEFT JOIN (
       SELECT MIN(id) AS id
       FROM trainees
       WHERE user_id = ?
     ) AS trainee_ctx ON 1 = 1
-    WHERE internships.status = ?`,
-      [user_id, "active"],
-    );
 
-    if (result.length === 0) {
-      throw createError(`no internships found`, 404);
-    }
+    WHERE internships.status = ?
+    ${companyFilter}
+    `,
+    params
+  );
 
-    const normalized = result.map((internship) => {
-      return {
-        ...internship,
-        has_apply: internship.has_apply === 1 || internship.has_apply === true,
-        quiz_completed:
-          internship.quiz_completed === 1 || internship.quiz_completed === true,
-        tech_completed:
-          internship.tech_completed === 1 || internship.tech_completed === true,
-      };
-    });
-
-    const deduped = new Map();
-
-    normalized.forEach((internship) => {
-      const existing = deduped.get(internship.id);
-
-      if (!existing) {
-        deduped.set(internship.id, internship);
-        return;
-      }
-
-      deduped.set(internship.id, {
-        ...existing,
-        has_apply: existing.has_apply || internship.has_apply,
-        quiz_completed: existing.quiz_completed || internship.quiz_completed,
-        tech_completed: existing.tech_completed || internship.tech_completed,
-      });
-    });
-
-    return {
-      data: Array.from(deduped.values()),
-    };
+  if (result.length === 0) {
+    throw createError(`no internships found`, 404);
   }
+
+  return {
+    data: result.map((i) => ({
+      ...i,
+      has_apply: !!i.has_apply,
+      quiz_completed: !!i.quiz_completed,
+      tech_completed: !!i.tech_completed,
+    })),
+  };
 };
 
 const postCompanySkills = async (companyId, skills) => {
