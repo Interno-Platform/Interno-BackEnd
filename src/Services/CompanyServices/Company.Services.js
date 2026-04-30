@@ -110,23 +110,8 @@ const addTechnicalExam = async (dataForTechExam) => {
   }
 };
 
-const getInternships = async (user_id) => {
-  // نحدد هل اليوزر شركة ولا لا
-  let companyFilter = "";
-  let params = [user_id || null, "active"];
-
-  if (user_id) {
-    const [company] = await db.query(
-      `SELECT id FROM companies WHERE user_id = ?`,
-      [user_id]
-    );
-
-    // لو شركة → فلترة
-    if (company.length > 0) {
-      companyFilter = "AND companies.user_id = ?";
-      params.push(user_id);
-    }
-  }
+const getInternships = async (user_id, role) => {
+  const params = [user_id || null, user_id || null, "active"];
 
   let [result] = await db.query(
     `SELECT 
@@ -159,6 +144,8 @@ const getInternships = async (user_id) => {
     FROM internships
     JOIN companies ON internships.company_id = companies.id 
 
+    LEFT JOIN companies AS company_ctx ON company_ctx.user_id = ?
+
     LEFT JOIN (
       SELECT MIN(id) AS id
       FROM trainees
@@ -166,9 +153,9 @@ const getInternships = async (user_id) => {
     ) AS trainee_ctx ON 1 = 1
 
     WHERE internships.status = ?
-    ${companyFilter}
+    AND (company_ctx.id IS NULL OR internships.company_id = company_ctx.id)
     `,
-    params
+    params,
   );
 
   if (result.length === 0) {
@@ -176,12 +163,20 @@ const getInternships = async (user_id) => {
   }
 
   return {
-    data: result.map((i) => ({
-      ...i,
-      has_apply: !!i.has_apply,
-      quiz_completed: !!i.quiz_completed,
-      tech_completed: !!i.tech_completed,
-    })),
+    data: result.map((i) => {
+      const { has_apply, quiz_completed, tech_completed, ...internship } = i;
+
+      if (role === "company") {
+        return internship;
+      }
+
+      return {
+        ...internship,
+        has_apply: false,
+        quiz_completed: false,
+        tech_completed: false,
+      };
+    }),
   };
 };
 
