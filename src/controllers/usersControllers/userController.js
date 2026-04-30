@@ -4,6 +4,9 @@ const {
   getAllUsersById,
   loginService,
 } = require("../../Services/usersServices/users.services");
+const {
+  updateUserProfile,
+} = require("../../Services/usersServices/users.services");
 const asyncHandler = require("express-async-handler");
 const createError = require("../../utils/createError");
 const { activateEmail } = require("../../Services/emailServices/verify-code");
@@ -45,3 +48,24 @@ const login = asyncHandler(async (req, res) => {
 });
 
 module.exports = { usersController, verifyCode, login };
+
+const updateProfile = asyncHandler(async (req, res) => {
+  const user_id = req.user?.id;
+  const role = req.user?.role;
+  if (!user_id || !role) throw createError("Unauthorized", 401);
+
+  let fileUrl = null;
+  if (req.file) {
+    const imagekit = require("../../storage/stroage");
+    const path = require("path");
+    const ext = path.extname(req.file.originalname) || "";
+    const fileName = `${Date.now()}${ext}`;
+    const uploaded = await imagekit.upload({ file: req.file.buffer, fileName });
+    fileUrl = uploaded.url;
+  }
+
+  const result = await updateUserProfile(user_id, role, req.body, fileUrl);
+  res.json(result);
+});
+
+module.exports.updateProfile = updateProfile;

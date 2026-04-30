@@ -166,16 +166,16 @@ const getInternships = async (user_id, role) => {
     data: result.map((i) => {
       const { has_apply, quiz_completed, tech_completed, ...internship } = i;
 
-      if (role === "company") {
-        return internship;
+      if (role === "trainee") {
+        return {
+          ...internship,
+          has_apply: !!has_apply,
+          quiz_completed: !!quiz_completed,
+          tech_completed: !!tech_completed,
+        };
       }
 
-      return {
-        ...internship,
-        has_apply: false,
-        quiz_completed: false,
-        tech_completed: false,
-      };
+      return internship;
     }),
   };
 };

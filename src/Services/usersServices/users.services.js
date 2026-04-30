@@ -9,13 +9,7 @@ const bycrypt = require("bcrypt");
 const path = require("path");
 
 const usersRegister = async (req) => {
-  const {
-    name,
-    email,
-    phone,
-    role,
-    password
-  } = req.body;
+  const { name, email, phone, role, password } = req.body;
   const validationResult = registerSchema.safeParse(req.body);
 
   if (!validationResult.success) {
@@ -37,8 +31,6 @@ const usersRegister = async (req) => {
     ) VALUES (?, ?, ?, ?, ?, ?)
   `;
 
-  // check if  user duplicated
-
   const findUserQuery = `SELECT email from users where email=?`;
   const [findSameUser] = await db.execute(findUserQuery, [email]);
 
@@ -53,13 +45,10 @@ const usersRegister = async (req) => {
     const ext = path.extname(req.file.originalname) || ".jpg";
     const fileName = `${Date.now()}${ext}`;
 
-    const uploaded = await imagekit.upload({
-      file: buffer,
-      fileName,
-    });
-
+    const uploaded = await imagekit.upload({ file: buffer, fileName });
     avatarUrl = uploaded.url;
   }
+
   const saltRounds = 10;
   const hashedPassword = await bycrypt.hash(password, saltRounds);
 
@@ -72,15 +61,13 @@ const usersRegister = async (req) => {
     avatarUrl,
   ]);
 
+  if (!usersResult) throw new Error("User registration failed");
+
   const [users] = await db.execute(
     `SELECT id, name, email, role, phone, profile_picture
        FROM users WHERE id = ?`,
     [usersResult.insertId],
   );
-
-  if (!usersResult) {
-    throw new Error("Trainee registration failed");
-  }
 
   const stringId = String(usersResult.insertId);
   await redis.set(stringId, JSON.stringify({ body: req.body }));
@@ -95,7 +82,6 @@ const usersRegister = async (req) => {
 
 const getDataByRole = async (userData) => {
   if (userData.role === "trainee") {
-    
     const [user] = await db.query("SELECT * FROM trainees WHERE user_id = ?", [
       userData.id,
     ]);
@@ -110,19 +96,17 @@ const getDataByRole = async (userData) => {
 
 const formatRes = async (user) => {
   const data = await getDataByRole(user);
-  const extractedData = data[0];
+  const extractedData = data[0] || {};
   const mergedData = { ...user, ...extractedData };
   const { password, has_verified, user_id, ...filteredUser } = mergedData;
-
   return filteredUser;
-  
 };
 
 const loginService = async (body) => {
   const { email, password } = body;
   const requiredFields = [];
-  if (!email) requiredFields.push(email);
-  if (!password) requiredFields.push(password);
+  if (!email) requiredFields.push("email");
+  if (!password) requiredFields.push("password");
   if (requiredFields.length > 0) {
     throw createError(
       `${requiredFields.map((e) => e).join(" - ")} are required`,
@@ -131,9 +115,7 @@ const loginService = async (body) => {
   }
 
   const userQuery = `SELECT * FROM users WHERE email = ?`;
-
   const [user] = await db.execute(userQuery, [email]);
-
   const userLoginData = user[0];
 
   if (!userLoginData) throw createError("user does not exist", 400);
@@ -141,15 +123,18 @@ const loginService = async (body) => {
   const isMatch = await bycrypt.compare(password, userLoginData.password);
   if (!isMatch) throw createError("Invalid Credentials", 400);
 
-  if (user.find((e) => e.has_verified === 0)) {
+  if (userLoginData.has_verified === 0) {
     throw createError("Please check your email to verify your account.", 400);
   }
-  
-  const token = generateJwt(...user, process.env.secret_key);
-  const detailsData = await formatRes(user[0]);
+
+  const token = generateJwt(
+    { role: userLoginData.role, id: userLoginData.id },
+    process.env.secret_key,
+  );
+  const detailsData = await formatRes(userLoginData);
   const userData = {
     data: {
-      token: token,
+      token,
       user: { details: detailsData },
     },
   };
@@ -164,4 +149,128 @@ const getAllUsersById = async (id) => {
   return user[0];
 };
 
-module.exports = { usersRegister, getAllUsersById, loginService };
+const updateUserProfile = async (user_id, role, data = {}, fileUrl = null) => {
+  if (!user_id) throw createError("Unauthorized", 401);
+
+  if (role === "company") {
+    const [rows] = await db.query(
+      `SELECT id FROM companies WHERE user_id = ? LIMIT 1`,
+      [user_id],
+    );
+    if (!rows || rows.length === 0) throw createError("company not found", 404);
+    const companyId = rows[0].id;
+
+    const allowed = [
+      "company_name",
+      "registration_number",
+      "email",
+      "phone",
+      "website",
+      "address",
+      "city",
+      "country",
+      "industry",
+      "social_media_links",
+      "employee_count",
+      "annual_revenue",
+      "founded_date",
+      "is_active",
+    ];
+
+    const updates = [];
+    const values = [];
+
+    allowed.forEach((k) => {
+      if (Object.prototype.hasOwnProperty.call(data, k)) {
+        let val = data[k];
+        if (k === "social_media_links" && typeof val !== "string") {
+          try {
+            val = JSON.stringify(val);
+          } catch (_) {}
+        }
+        updates.push(`${k} = ?`);
+        values.push(val);
+      }
+    });
+
+    if (fileUrl) {
+      updates.push(`logo_url = ?`);
+      values.push(fileUrl);
+    }
+
+    if (updates.length === 0) return { message: "no changes provided" };
+
+    values.push(companyId);
+    const sql = `UPDATE companies SET ${updates.join(", ")} WHERE id = ?`;
+    await db.execute(sql, values);
+
+    const [updated] = await db.query(
+      `SELECT * FROM companies WHERE id = ? LIMIT 1`,
+      [companyId],
+    );
+    return { data: updated[0] };
+  }
+
+  if (role === "trainee") {
+    const [rows] = await db.query(
+      `SELECT MIN(id) AS id FROM trainees WHERE user_id = ?`,
+      [user_id],
+    );
+    const traineeId = rows[0]?.id;
+    if (!traineeId) throw createError("trainee not found", 404);
+
+    const allowed = [
+      "name",
+      "email",
+      "phone",
+      "gender",
+      "city",
+      "university",
+      "major",
+      "graduation_year",
+      "skills",
+      "cv_file",
+    ];
+    const updates = [];
+    const values = [];
+
+    allowed.forEach((k) => {
+      if (Object.prototype.hasOwnProperty.call(data, k)) {
+        let val = data[k];
+        if (k === "skills" && typeof val !== "string") {
+          try {
+            val = JSON.stringify(val);
+          } catch (_) {}
+        }
+        updates.push(`${k} = ?`);
+        values.push(val);
+      }
+    });
+
+    if (fileUrl) {
+      updates.push(`profile_picture = ?`);
+      values.push(fileUrl);
+    }
+
+    if (updates.length === 0) return { message: "no changes provided" };
+
+    values.push(traineeId);
+    const sql = `UPDATE trainees SET ${updates.join(", ")} WHERE id = ?`;
+    await db.execute(sql, values);
+
+    const [updated] = await db.query(
+      `SELECT * FROM trainees WHERE id = ? LIMIT 1`,
+      [traineeId],
+    );
+    return { data: updated[0] };
+  }
+
+  throw createError("unsupported role", 400);
+};
+
+module.exports = {
+  usersRegister,
+  getAllUsersById,
+  loginService,
+  updateUserProfile,
+};
