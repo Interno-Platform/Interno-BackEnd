@@ -7,7 +7,7 @@ const updateTraineeScore = async (traineeId, skillId) => {
   const query = `
     SELECT 
       COUNT(*) as total_questions,
-      SUM(CASE WHEN opt.is_correct = TRUE THEN 1 ELSE 0 END) as correct_answers
+      COALESCE(SUM(opt.is_correct), 0) as correct_answers
     FROM trainees_answers ta
     JOIN questions q ON ta.question_id = q.id
     JOIN options opt ON ta.selected_option_id = opt.id
@@ -20,8 +20,8 @@ const updateTraineeScore = async (traineeId, skillId) => {
     throw createError("No quiz data found for this trainee and skill", 404);
   }
 
-  const totalQuestions = result[0].total_questions || 0;
-  const correctAnswers = result[0].correct_answers || 0;
+  const totalQuestions = Number(result[0].total_questions || 0);
+  const correctAnswers = Number(result[0].correct_answers || 0);
   const scorePercentage =
     totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
 
@@ -41,10 +41,10 @@ const updateTraineeScore = async (traineeId, skillId) => {
     skillId,
     totalQuestions,
     correctAnswers,
-    scorePercentage.toFixed(2),
+    parseFloat(scorePercentage.toFixed(2)),
     totalQuestions,
     correctAnswers,
-    scorePercentage.toFixed(2),
+    parseFloat(scorePercentage.toFixed(2)),
   ]);
 
   if (updateResult.affectedRows === 0) {

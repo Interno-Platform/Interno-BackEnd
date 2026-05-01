@@ -53,17 +53,25 @@ const insertTraineeOrCompany = async (body) => {
       founded_date,
       logo_url
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    const socialMediaLinks = body.social_media_links
-      ? JSON.stringify(body.social_media_links)
+    let socialMediaLinks = body.social_media_links;
+
+    if (typeof socialMediaLinks === "string") {
+      try {
+        socialMediaLinks = JSON.parse(socialMediaLinks);
+      } catch (_) {}
+    }
+
+    const socialMediaLinksJson = socialMediaLinks
+      ? JSON.stringify(socialMediaLinks)
       : null;
-    console.log(socialMediaLinks);
+    console.log(socialMediaLinksJson);
 
     const [users] = await db.execute(companiesQuery, [
       body.id,
       body.name || null,
       body.registration_number || null,
       body.email,
-      socialMediaLinks,
+      socialMediaLinksJson,
       body.phone || null,
       body.website || null,
       body.address || null,

@@ -33,12 +33,7 @@ const approveCompanyService = async (company_id, admin_id = null) => {
   }
 
   // Send approval email
-  try {
-    await sendCompanyApprovalEmail(companyEmail, companyName);
-  } catch (emailError) {
-    console.error("Error sending approval email:", emailError);
-    // Don't throw - approval is still successful even if email fails
-  }
+  await sendCompanyApprovalEmail(companyEmail, companyName);
 
   return { message: "Company has been approved successfully" };
 };
