@@ -11,8 +11,8 @@ const insertTraineeOrCompany = require("./insertTrainees-compaines");
 
 const usersRegister = async (req) => {
   const { name, email, phone, role, password } = req.body;
-  const validationResult = registerSchema.safeParse(req.body);
 
+  const validationResult = registerSchema.safeParse(req.body);
   if (!validationResult.success) {
     throw createError(
       "invalid inputs",
@@ -21,18 +21,7 @@ const usersRegister = async (req) => {
     );
   }
 
-  const usersQuery = `
-    INSERT INTO users (
-      name, 
-      email, 
-      password,
-      role,
-      phone, 
-      profile_picture
-    ) VALUES (?, ?, ?, ?, ?, ?)
-  `;
-
-  const findUserQuery = `SELECT email from users where email=?`;
+  const findUserQuery = `SELECT id FROM users WHERE email = ?`;
   const [findSameUser] = await db.execute(findUserQuery, [email]);
 
   if (findSameUser.length > 0) {
@@ -40,7 +29,6 @@ const usersRegister = async (req) => {
   }
 
   let avatarUrl = "";
-
   if (req.file) {
     const buffer = req.file.buffer;
     const ext = path.extname(req.file.originalname) || ".jpg";
@@ -50,8 +38,14 @@ const usersRegister = async (req) => {
     avatarUrl = uploaded.url;
   }
 
-  const saltRounds = 10;
+  const saltRounds = 8;
   const hashedPassword = await bycrypt.hash(password, saltRounds);
+
+  const usersQuery = `
+    INSERT INTO users (
+      name, email, password, role, phone, profile_picture
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `;
 
   const [usersResult] = await db.execute(usersQuery, [
     name,
@@ -62,17 +56,18 @@ const usersRegister = async (req) => {
     avatarUrl,
   ]);
 
-  if (!usersResult) throw new Error("User registration failed");
+  if (!usersResult?.insertId) {
+    throw new Error("User registration failed");
+  }
 
-  const [users] = await db.execute(
-    `SELECT id, name, email, role, phone, profile_picture
-       FROM users WHERE id = ?`,
-    [usersResult.insertId],
-  );
+  const userId = String(usersResult.insertId);
 
-  const stringId = String(usersResult.insertId);
-  await redis.set(stringId, JSON.stringify({ body: req.body }));
-  await sentVerifyAccountEmail(stringId, email);
+  Promise.allSettled([
+    redis.set(userId, JSON.stringify({ body: req.body })),
+    sentVerifyAccountEmail(userId, email),
+  ]).catch((err) => {
+    console.error("post-register tasks failed:", err);
+  });
 
   return {
     success: true,
