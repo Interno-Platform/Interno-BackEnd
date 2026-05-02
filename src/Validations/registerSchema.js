@@ -53,6 +53,9 @@ const baseSchema = z.object({
 
 const traineeSchema = baseSchema.extend({
   role: z.literal("trainee"),
+  gender: z.enum(["male", "female"], {
+    message: "gender must be either male or female",
+  }),
 });
 
 const companySchema = baseSchema.extend({

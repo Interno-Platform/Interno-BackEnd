@@ -222,23 +222,35 @@ Rules:
   }
 };
 
-const insertQuestionsForSkill = async (skillId, skillName) => {
+
+const insertQuestionsForSkill = async (
+  skillId,
+  skillName,
+  internshipId = null,
+) => {
+  const existingQuery = internshipId
+    ? "SELECT id FROM questions WHERE skill_id = ? AND internship_id = ? LIMIT 1"
+    : "SELECT id FROM questions WHERE skill_id = ? AND internship_id IS NULL LIMIT 1";
+  const existingParams = internshipId ? [skillId, internshipId] : [skillId];
+
   const [existingQuestions] = await db.query(
-    "SELECT id FROM questions WHERE skill_id = ? LIMIT 1",
-    [skillId],
+    existingQuery,
+    existingParams,
   );
 
   if (existingQuestions.length > 0) {
     return;
   }
 
+
   try {
     const aiQuestions = await generateQuestionsForSkill(skillName);
 
     for (const [index, question] of aiQuestions.entries()) {
       const [questionResult] = await db.query(
-        "INSERT INTO questions (skill_id, question_text) VALUES (?, ?)",
-        [skillId, question.questionText],
+        `INSERT INTO questions (skill_id, internship_id, question_text)
+         VALUES (?, ?, ?)`,
+        [skillId, internshipId, question.questionText],
       );
 
       const optionValues = question.options.map((option) => [
@@ -255,6 +267,34 @@ const insertQuestionsForSkill = async (skillId, skillName) => {
   } catch (error) {
     throw error;
   }
+};
+
+const ensureQuestionsForInternship = async (skillIds, internshipId) => {
+  const normalizedSkillIds = Array.isArray(skillIds)
+    ? skillIds
+        .map((skillId) => Number(skillId))
+        .filter((skillId) => Number.isInteger(skillId) && skillId > 0)
+    : [];
+
+  if (!internshipId || normalizedSkillIds.length === 0) {
+    return [];
+  }
+
+  const placeholders = normalizedSkillIds.map(() => "?").join(", ");
+  const [skills] = await db.query(
+    `SELECT id, name FROM skills WHERE id IN (${placeholders})`,
+    normalizedSkillIds,
+  );
+
+  if (skills.length !== normalizedSkillIds.length) {
+    throw createError("One or more required skills are invalid", 400);
+  }
+
+  for (const skill of skills) {
+    await insertQuestionsForSkill(skill.id, skill.name, internshipId);
+  }
+
+  return skills;
 };
 
 // add skills in bulk to a trainee,
@@ -301,10 +341,6 @@ const addSkillsToTrainee = async (traineeId, skills) => {
     traineeSkillsValues,
   );
 
-  for (const skill of allSkills) {
-    await insertQuestionsForSkill(skill.id, skill.name);
-  }
-
   return allSkills;
 };
 
@@ -342,10 +378,6 @@ const addSkillsFromCompany = async (skills) => {
     allSkills = [...allSkills, ...insertedSkillsRows];
   }
 
-  for (const skill of allSkills) {
-    await insertQuestionsForSkill(skill.id, skill.name);
-  }
-
   return allSkills;
 };
 
@@ -370,6 +402,7 @@ const getAllTraineerSkills = async (traineeId) => {
 module.exports = {
   addSkillsToTrainee,
   addSkillsFromCompany,
+  ensureQuestionsForInternship,
   getAllSkills,
   getAllTraineerSkills,
 };

@@ -25,7 +25,7 @@ const parseSkillsValue = (skills) => {
   return null;
 };
 
-const postSkills = async (user_id, skills, cvFileUrl = null) => {
+const postSkills = async (trainee_id, skills, cvFileUrl = null) => {
   const parsedSkills = parseSkillsValue(skills);
 
   if (!parsedSkills || parsedSkills.length === 0) {
@@ -39,13 +39,13 @@ const postSkills = async (user_id, skills, cvFileUrl = null) => {
   const [result] = await db.execute(updateQuery, [
     stringfySkills,
     cvFileUrl,
-    user_id,
+    trainee_id,
   ]);
   if (result.affectedRows === 0) {
     throw createError("invalid trainee(id)", 400);
   }
   const query = `SELECT * FROM trainees Where id = ?`;
-  const [row] = await db.execute(query, [user_id]);
+  const [row] = await db.execute(query, [trainee_id]);
 
   await addSkillsToTrainee(row[0].id, parsedSkills);
   return {

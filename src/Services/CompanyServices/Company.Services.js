@@ -3,7 +3,10 @@ const {
   internshipWithExamSchema,
 } = require("../../Validations/internshipsSchema");
 const db = require("../../config/database");
-const { addSkillsFromCompany } = require("../skillsServices/skills.services");
+const {
+  ensureQuestionsForInternship,
+  addSkillsFromCompany,
+} = require("../skillsServices/skills.services");
 
 const parseSkillsValue = (skills) => {
   if (Array.isArray(skills)) {
@@ -80,6 +83,10 @@ const postInternship = async (body, company_id) => {
   };
 
   await addTechnicalExam(dataForTechExam);
+  await ensureQuestionsForInternship(
+    internshipData.required_skills,
+    result.insertId,
+  );
 
   return {
     message: "internship created successfully",
@@ -92,8 +99,8 @@ const addTechnicalExam = async (dataForTechExam) => {
   const [result] = await db.query(
     `INSERT INTO internship_exams 
     (internship_id, exam_title, exam_description, requirements, 
-     expected_input, expected_output, programmingLanguage) 
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+     expected_input, expected_output, programmingLanguage, exam_passing_score) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       dataForTechExam?.internship_id,
       dataForTechExam?.exam_title,
@@ -102,6 +109,7 @@ const addTechnicalExam = async (dataForTechExam) => {
       dataForTechExam?.expected_input,
       dataForTechExam?.expected_output,
       dataForTechExam?.programmingLanguage,
+      dataForTechExam?.exam_passing_score ?? 60,
     ],
   );
 

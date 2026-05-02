@@ -259,11 +259,10 @@ const changeInternshipStatus = async (
 const getPendingInternships = async () => {
   const [result] = await db.query(
     `SELECT 
-      internships.id,
-      internships.title,
+      internships.*,
       companies.company_name,
       companies.email,
-  JSON_ARRAYAGG(skills.name) AS skills
+  JSON_ARRAYAGG(skills.name) AS required_skills
   FROM internships
   JOIN companies 
    ON internships.company_id = companies.id

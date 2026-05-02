@@ -73,7 +73,7 @@ const sendInternshipApprovalEmail = async (
     );
     const result = await sendEmail(
       companyEmail,
-      "Your Training Has Been Approved",
+      "Your Internship Has Been Approved",
       emailTemplate,
     );
     return result;
@@ -104,7 +104,7 @@ const sendInternshipRejectionEmail = async (
     );
     const result = await sendEmail(
       companyEmail,
-      "Your Training Was Not Approved",
+      "Your Internship Was Rejected",
       emailTemplate,
     );
     return result;

@@ -78,11 +78,20 @@ const internshipExamSchema = z.object({
     z.string().min(10, "expected_input must be at least 10 characters"),
   ),
   expected_output: preprocess("expected_output is required").pipe(
-    z.string().min(10, "expected_output must be at least 10 characters"),
+    z.string().max(50, "expected_output must be at most 50 characters"),
   ),
   programmingLanguage: preprocess("programmingLanguage is required").pipe(
     z.string().max(50, "programmingLanguage is too long"),
   ),
+  exam_passing_score: z
+    .preprocess(
+      (val) => (val !== undefined && val !== null ? Number(val) : undefined),
+      z
+        .number({ error: "exam_passing_score must be a number" })
+        .min(0, "exam_passing_score must be at least 0")
+        .max(100, "exam_passing_score must not exceed 100"),
+    )
+    .optional(),
 });
 
 const internshipWithExamSchema = internshipSchema.merge(

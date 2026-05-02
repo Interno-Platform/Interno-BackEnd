@@ -82,6 +82,8 @@ const welacomeEmailTemplate = () => {
 };
 
 const verificationEmailTemplate = (id, verifyCode) => {
+  console.log(`${process.env.BASE_URL}/api/users/verify-code/${id}/${verifyCode}`);
+  
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -554,9 +556,9 @@ const internshipApprovalEmailTemplate = (companyName, internshipName) => {
           </tr>
           <tr>
             <td style="padding:40px;color:#1a1f26;">
-              <h2 style="margin-top:0;color:#4CAF50;font-size:28px;">Your Training/Internship Has Been Approved! ✅</h2>
+              <h2 style="margin-top:0;color:#4CAF50;font-size:28px;">Your Internship Has Been Approved! ✅</h2>
               <p style="font-size:16px;line-height:1.7;color:#5a5f69;">Dear ${companyName},</p>
-              <p style="font-size:15px;line-height:1.7;color:#5a5f69;">Great news! Your training/internship program <strong>"${internshipName}"</strong> has been approved and is now live on the Interno platform.</p>
+              <p style="font-size:15px;line-height:1.7;color:#5a5f69;">Great news! Your internship program <strong>"${internshipName}"</strong> has been approved and is now live on the Interno platform.</p>
               <ul style="font-size:15px;line-height:1.9;color:#1a1f26;margin:20px 0;padding-left:25px;">
                 <li style="margin-bottom:10px;">🎯 Your program is now visible to potential candidates</li>
                 <li style="margin-bottom:10px;">📱 Candidates can view and apply for positions</li>

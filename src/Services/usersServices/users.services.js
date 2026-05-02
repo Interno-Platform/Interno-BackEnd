@@ -7,6 +7,7 @@ const imagekit = require("../../storage/stroage");
 const registerSchema = require("../../Validations/registerSchema");
 const bycrypt = require("bcrypt");
 const path = require("path");
+const insertTraineeOrCompany = require("./insertTrainees-compaines");
 
 const usersRegister = async (req) => {
   const { name, email, phone, role, password } = req.body;

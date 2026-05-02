@@ -4,15 +4,17 @@ const traineesScoresServices = require("../../Services/traineesServices/trainees
 const quizSubmissionServices = require("../../Services/traineesServices/quizSubmission.services");
 
 const submitQuizAnswersController = asyncHandler(async (req, res) => {
-  const { traineeId, answers } = req.body;
+  const { traineeId, examId, internshipId, answers } = req.body;
 
-  if (!traineeId || !answers) {
-    throw createError("traineeId and answers are required", 400);
+  if (!traineeId || !examId || !answers) {
+    throw createError("traineeId, examId, and answers are required", 400);
   }
 
   const result = await quizSubmissionServices.submitQuizAnswers(
     traineeId,
+    examId,
     answers,
+    internshipId,
   );
 
   res.status(201).json(result);
@@ -36,16 +38,15 @@ const submitExamSolutionController = asyncHandler(async (req, res) => {
 });
 
 const markQuizCompletedController = asyncHandler(async (req, res) => {
-  const { traineeId, examId, quizScore, internshipId } = req.body;
+  const { traineeId, examId, internshipId } = req.body;
 
-  if (!traineeId || !examId || quizScore === undefined) {
-    throw createError("traineeId, examId, and quizScore are required", 400);
+  if (!traineeId || !examId) {
+    throw createError("traineeId and examId are required", 400);
   }
 
   const result = await quizSubmissionServices.markQuizCompleted(
     traineeId,
     examId,
-    quizScore,
     internshipId,
   );
 
@@ -123,6 +124,60 @@ const getTraineeProgressController = asyncHandler(async (req, res) => {
   });
 });
 
+const calculateAssessmentScoresController = asyncHandler(async (req, res) => {
+  const { traineeId, internshipId } = req.params;
+
+  if (!traineeId || !internshipId) {
+    throw createError("traineeId and internshipId are required", 400);
+  }
+
+  const scores = await traineesScoresServices.updateAllTraineeScores(
+    traineeId,
+    internshipId,
+  );
+
+  res.json({
+    message: "Assessment scores calculated successfully",
+    count: scores.length,
+    data: scores,
+  });
+});
+
+const getTraineeSkillsProgressController = asyncHandler(async (req, res) => {
+  const { traineeId, internshipId } = req.params;
+
+  if (!traineeId || !internshipId) {
+    throw createError("traineeId and internshipId are required", 400);
+  }
+
+  const progress = await traineesScoresServices.getTraineeSkillsProgress(
+    traineeId,
+    internshipId,
+  );
+
+  res.json({
+    message: "Trainee skills progress retrieved successfully",
+    data: progress,
+  });
+});
+
+const deleteFailedSkillSubmissionsController = asyncHandler(
+  async (req, res) => {
+    const { traineeId, internshipId } = req.params;
+
+    if (!traineeId || !internshipId) {
+      throw createError("traineeId and internshipId are required", 400);
+    }
+
+    const result = await traineesScoresServices.deleteFailedSkillSubmissions(
+      traineeId,
+      internshipId,
+    );
+
+    res.json(result);
+  },
+);
+
 module.exports = {
   submitQuizAnswersController,
   submitExamSolutionController,
@@ -131,4 +186,7 @@ module.exports = {
   getTraineeScoresController,
   getTraineeSkillScoreController,
   getTraineeProgressController,
+  calculateAssessmentScoresController,
+  getTraineeSkillsProgressController,
+  deleteFailedSkillSubmissionsController,
 };

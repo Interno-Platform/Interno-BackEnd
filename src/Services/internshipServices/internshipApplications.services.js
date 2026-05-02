@@ -293,10 +293,11 @@ const markApplicationCompleted = async (traineeId, internshipId) => {
   const query = `
     UPDATE internship_applications
     SET status = 'completed'
-    WHERE  internship_id = ?
+    WHERE internship_id = ?
+      AND trainee_id = ?
   `;
 
-  const [result] = await db.query(query, [internshipId]);
+  const [result] = await db.query(query, [internshipId, traineeId]);
 
   if (result.affectedRows === 0) {
     throw createError("Application not found", 404);

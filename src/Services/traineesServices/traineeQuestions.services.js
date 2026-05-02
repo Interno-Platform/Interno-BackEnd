@@ -1,4 +1,7 @@
 const db = require("../../config/database");
+const {
+  ensureQuestionsForInternship,
+} = require("../skillsServices/skills.services");
 
 const groupQuestionsBySkill = (rows) => {
   const questionsMap = {};
@@ -49,18 +52,25 @@ const internshipQestionsBySkill = async (internshipId, skillIds) => {
     return { data: {} };
   }
 
+  await ensureQuestionsForInternship(normalizedSkillIds, internshipId);
+
   const placeholders = normalizedSkillIds.map(() => "?").join(", ");
   const query = `
     SELECT q.id , ie.id as exam_id, q.question_text,o.id as option_id, o.option_text, s.name as skill_name
     FROM questions q
     JOIN options o ON q.id = o.question_id
     JOIN skills s ON q.skill_id = s.id 
-    JOIN internship_exams ie ON ie.internship_id = ?
-    WHERE q.skill_id IN (${placeholders})
+   JOIN internship_exams ie ON ie.internship_id = ?
+    WHERE q.internship_id = ?
+      AND q.skill_id IN (${placeholders})
     ORDER BY s.name, q.id, o.id
   `;
 
-  const [questions] = await db.query(query, [internshipId, ...normalizedSkillIds]);
+  const [questions] = await db.query(query, [
+    internshipId,
+    internshipId,
+    ...normalizedSkillIds,
+  ]);
   return groupQuestionsBySkill(questions);
 };
 
