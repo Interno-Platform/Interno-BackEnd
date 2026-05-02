@@ -5,5 +5,5 @@ CREATE TABLE questions (
     internship_id INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (skill_id) REFERENCES skills(id),
-    FOREIGN KEY (internship_id) REFERENCES internships(id)
+    FOREIGN KEY (internship_id) REFERENCES internships(id) ON DELETE CASCADE
 );
