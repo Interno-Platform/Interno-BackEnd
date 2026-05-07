@@ -36,6 +36,8 @@ const usersRegister = async (req) => {
 
     const uploaded = await imagekit.upload({ file: buffer, fileName });
     avatarUrl = uploaded.url;
+  } else {
+    console.log("No file received in request");
   }
 
   const saltRounds = 8;
@@ -62,8 +64,24 @@ const usersRegister = async (req) => {
 
   const userId = String(usersResult.insertId);
 
+  // Build clean body to store - exclude empty profile_picture from req.body
+  const { profile_picture, ...cleanReqBody } = req.body;
+
+  const bodyToStore = {
+    ...cleanReqBody,
+    profile_picture: avatarUrl || "", // Always use the uploaded URL or empty string
+  };
+
+  if (!avatarUrl) {
+    console.warn("⚠️ No profile picture uploaded for user:", userId);
+  } else {
+    console.log("✅ Profile picture uploaded successfully:", avatarUrl);
+  }
+
+  console.log("Body to store in Redis:", bodyToStore);
+
   Promise.allSettled([
-    redis.set(userId, JSON.stringify({ body: req.body })),
+    redis.set(userId, JSON.stringify({ body: bodyToStore })),
     sentVerifyAccountEmail(userId, email),
   ]).catch((err) => {
     console.error("post-register tasks failed:", err);
@@ -93,7 +111,11 @@ const getDataByRole = async (userData) => {
 const formatRes = async (user) => {
   const data = await getDataByRole(user);
   const extractedData = data[0] || {};
-  const mergedData = { ...user, profile_picture: user.profile_picture, ...extractedData };
+  const mergedData = {
+    ...user,
+    profile_picture: user.profile_picture,
+    ...extractedData,
+  };
   const { password, has_verified, user_id, ...filteredUser } = mergedData;
   return filteredUser;
 };

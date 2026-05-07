@@ -1,8 +1,8 @@
 const db = require("../../config/database");
+const createError = require("../../utils/createError");
 
 const insertTraineeOrCompany = async (body) => {
-  console.log(body);
-
+  console.log("Inserting trainee or company with data:", body);
   if (body.role === "trainee") {
     const traineeQuery = `INSERT INTO trainees (
       user_id,
@@ -18,6 +18,8 @@ const insertTraineeOrCompany = async (body) => {
       cv_file
     ) VALUES (?, ?, ?, ?, ?, ?,?,?,?,?,?)`;
 
+    console.log("Profile picture before insert:", body.profile_picture);
+
     const [users] = await db.execute(traineeQuery, [
       body.id,
       body.name,
@@ -31,6 +33,9 @@ const insertTraineeOrCompany = async (body) => {
       body.profile_picture || null,
       body.cv_file || null,
     ]);
+
+    console.log("Trainee insert result:", users);
+
     if (!users || users.affectedRows === 0) {
       throw createError("Trainee registration failed", 400);
     }
