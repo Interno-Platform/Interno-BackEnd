@@ -2,7 +2,7 @@ const sendEmail = require("./Email.services");
 const createError = require("../../utils/createError");
 const {
   verificationEmailTemplate,
-  traineeWelcomeEmailTemplate,
+  welacomeEmailTemplate,
   emailVerificationSuccessPageTrainee,
   emailVerificationSuccessPageCompany,
 } = require("../../utils/email.template");
@@ -55,7 +55,7 @@ const activateEmail = async (params) => {
 
   // Send welcome email only for trainees (not for companies - they're under review)
   if (role === "trainee") {
-    const welcomeEmail = traineeWelcomeEmailTemplate(userData.name);
+    const welcomeEmail = welacomeEmailTemplate(userData.name);
     await sendEmail(userData.email, "Welcome to Interno!", welcomeEmail);
   }
 
