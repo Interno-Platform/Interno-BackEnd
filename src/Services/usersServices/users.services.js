@@ -93,7 +93,7 @@ const getDataByRole = async (userData) => {
 const formatRes = async (user) => {
   const data = await getDataByRole(user);
   const extractedData = data[0] || {};
-  const mergedData = { ...user, ...extractedData };
+  const mergedData = { ...user, profile_picture: user.profile_picture, ...extractedData };
   const { password, has_verified, user_id, ...filteredUser } = mergedData;
   return filteredUser;
 };
@@ -171,6 +171,7 @@ const updateUserProfile = async (user_id, role, data = {}, fileUrl = null) => {
       "annual_revenue",
       "founded_date",
       "is_active",
+      "profile_picture",
     ];
 
     const updates = [];
@@ -226,6 +227,7 @@ const updateUserProfile = async (user_id, role, data = {}, fileUrl = null) => {
       "graduation_year",
       "skills",
       "cv_file",
+      "profile_picture",
     ];
     const updates = [];
     const values = [];

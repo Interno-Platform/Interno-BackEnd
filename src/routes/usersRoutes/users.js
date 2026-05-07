@@ -17,6 +17,6 @@ usersRouter.post(
 usersRouter.get("/verify-code/:user_id/:token", verifyCode);
 usersRouter.post("/login", login);
 
-usersRouter.put("/profile", upload.single("file"), updateProfile);
+usersRouter.put("/profile", upload.single("profile_picture"), updateProfile);
 
 module.exports = usersRouter;
