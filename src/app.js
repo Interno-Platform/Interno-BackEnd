@@ -17,6 +17,12 @@ env.config();
 app.use(express.json());
 app.use(helemt());
 
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    message: "Server running",
+  });
+});
+
 app.use(verifyJwt);
 
 routesHandler(app);
