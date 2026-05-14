@@ -9,6 +9,10 @@ const submitQuizAnswersController = asyncHandler(async (req, res) => {
   if (!traineeId || !examId || !answers) {
     throw createError("traineeId, examId, and answers are required", 400);
   }
+  
+  if (traineeId !== req.user.id) {
+    throw createError("You are not authorized to submit answers for this quiz", 403);
+  }
 
   const result = await quizSubmissionServices.submitQuizAnswers(
     traineeId,

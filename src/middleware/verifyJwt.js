@@ -14,10 +14,11 @@ const verifyJwt = (req, res, next) => {
   if (!token) {
     return next(createError("Unauthorized", 401));
   }
-
+  
   try {
     const decoded = jwt.verify(token, process.env.secret_key);
     req.user = decoded;
+    console.log("Decoded JWT:", decoded);
     next();
   } catch (error) {
     next(createError("Invalid or expired token", 401));

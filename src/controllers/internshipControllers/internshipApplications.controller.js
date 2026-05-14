@@ -11,6 +11,10 @@ const applyForInternshipController = asyncHandler(async (req, res) => {
     throw createError("traineeId and internshipId are required", 400);
   }
 
+  if (traineeId !== req.user.id) {
+    throw createError("You are not authorized to apply for this internship", 403);
+  }
+
   const result = await internshipAppServices.applyForInternship(
     traineeId,
     internshipId,
