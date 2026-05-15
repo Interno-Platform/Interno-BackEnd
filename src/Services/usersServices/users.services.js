@@ -73,9 +73,9 @@ const usersRegister = async (req) => {
   };
 
   if (!avatarUrl) {
-    console.warn("⚠️ No profile picture uploaded for user:", userId);
+    console.warn("No profile picture uploaded for user:", userId);
   } else {
-    console.log("✅ Profile picture uploaded successfully:", avatarUrl);
+    console.log("Profile picture uploaded successfully:", avatarUrl);
   }
 
   console.log("Body to store in Redis:", bodyToStore);
@@ -145,11 +145,15 @@ const loginService = async (body) => {
     throw createError("Please check your email to verify your account.", 400);
   }
 
+  const detailsData = await formatRes(userLoginData);
+
+  const user_id =detailsData.id?.toString();
+
   const token = generateJwt(
-    { role: userLoginData.role, id: userLoginData.id },
+    { role: detailsData.role, id: user_id },
     process.env.secret_key,
   );
-  const detailsData = await formatRes(userLoginData);
+
   const userData = {
     data: {
       token,

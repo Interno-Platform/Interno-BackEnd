@@ -33,9 +33,11 @@ const parseSkillsInput = (skills) => {
 
 const insertSkills = asyncHandler(async (req, res) => {
   const { trainee_id } = req.params;
+
   if (!trainee_id) {
     throw createError("trainee_id is required", 400);
   }
+
 
   if (trainee_id !== req.user.id) {
     throw createError(
