@@ -61,6 +61,9 @@ const getQuizStatusController = asyncHandler(async (req, res) => {
   if (!traineeId || !examId) {
     throw createError("traineeId and examId are required", 400);
   }
+    if (Number(traineeId) !== req.user.id) {
+    throw createError("You are not authorized to view the status of this quiz", 403);
+  }
 
   const status = await quizSubmissionServices.getTraineeQuizStatus(
     traineeId,
