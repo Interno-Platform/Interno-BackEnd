@@ -41,7 +41,11 @@ const groupQuestionsBySkill = (rows) => {
   return { data: { exam_id: rows[0]?.exam_id, ...result } };
 };
 
-const internshipQestionsBySkill = async (internshipId, skillIds, traineeId = null) => {
+const internshipQestionsBySkill = async (
+  internshipId,
+  skillIds,
+  traineeId = null,
+) => {
   const normalizedSkillIds = Array.isArray(skillIds)
     ? skillIds
         .map((skillId) => Number(skillId))
@@ -71,8 +75,12 @@ const internshipQestionsBySkill = async (internshipId, skillIds, traineeId = nul
       ...normalizedSkillIds,
     ]);
 
-    const answeredSkillIds = new Set(answeredRows.map((r) => Number(r.skill_id)));
-    filteredSkillIds = normalizedSkillIds.filter((id) => !answeredSkillIds.has(Number(id)));
+    const answeredSkillIds = new Set(
+      answeredRows.map((r) => Number(r.skill_id)),
+    );
+    filteredSkillIds = normalizedSkillIds.filter(
+      (id) => !answeredSkillIds.has(Number(id)),
+    );
   }
 
   if (filteredSkillIds.length === 0) {

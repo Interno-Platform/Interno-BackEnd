@@ -41,7 +41,6 @@ const insertSkills = asyncHandler(async (req, res) => {
     throw createError("trainee_id is required", 400);
   }
 
-
   if (trainee_id !== req.user.id) {
     throw createError(
       "You are not authorized to modify this trainee's skills",
@@ -96,7 +95,11 @@ const questionsBySkillsController = asyncHandler(async (req, res) => {
     throw createError("skills must be a non-empty array", 400);
   }
   const traineeId = req.user && req.user.id ? req.user.id : null;
-  const result = await internshipQestionsBySkill(internship_id, skills, traineeId);
+  const result = await internshipQestionsBySkill(
+    internship_id,
+    skills,
+    traineeId,
+  );
   // If no questions returned for the requested skills, mark quiz as completed
   if (result && result.data && Object.keys(result.data).length === 0) {
     // find an exam for this internship to mark completion
@@ -111,7 +114,11 @@ const questionsBySkillsController = asyncHandler(async (req, res) => {
         examRows[0].id,
         internship_id,
       );
-      return res.json({ message: "Quiz completed", quizCompleted: true, data: markResult });
+      return res.json({
+        message: "Quiz completed",
+        quizCompleted: true,
+        data: markResult,
+      });
     }
 
     return res.json({ message: "No questions available", data: result });
