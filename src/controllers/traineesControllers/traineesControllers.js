@@ -41,7 +41,7 @@ const insertSkills = asyncHandler(async (req, res) => {
     throw createError("trainee_id is required", 400);
   }
 
-  if (trainee_id !== req.user.id) {
+  if (Number(trainee_id) !== req.user.id) {
     throw createError(
       "You are not authorized to modify this trainee's skills",
       400,
