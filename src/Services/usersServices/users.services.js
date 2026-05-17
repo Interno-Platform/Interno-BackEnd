@@ -147,7 +147,7 @@ const loginService = async (body) => {
 
   const detailsData = await formatRes(userLoginData);
 
-  const user_id =detailsData.id?.toString();
+  const user_id = +detailsData.id;
 
   const token = generateJwt(
     { role: detailsData.role, id: user_id },
