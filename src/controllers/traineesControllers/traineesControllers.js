@@ -5,6 +5,9 @@ const imagekit = require("../../storage/stroage");
 const path = require("path");
 const db = require("../../config/database");
 const { sendEvent } = require("../../config/kafka");
+const {
+  markQuizCompleted: markQuizCompletedService,
+} = require("../../Services/traineesServices/quizSubmission.services");
 
 const {
   postSkills,
@@ -92,7 +95,28 @@ const questionsBySkillsController = asyncHandler(async (req, res) => {
   if (!skills || !Array.isArray(skills) || skills.length === 0) {
     throw createError("skills must be a non-empty array", 400);
   }
-  const result = await internshipQestionsBySkill(internship_id, skills);
+  const traineeId = req.user && req.user.id ? req.user.id : null;
+  const result = await internshipQestionsBySkill(internship_id, skills, traineeId);
+  // If no questions returned for the requested skills, mark quiz as completed
+  if (result && result.data && Object.keys(result.data).length === 0) {
+    // find an exam for this internship to mark completion
+    const [examRows] = await db.query(
+      `SELECT id FROM internship_exams WHERE internship_id = ? LIMIT 1`,
+      [internship_id],
+    );
+
+    if (examRows.length > 0 && traineeId) {
+      const markResult = await markQuizCompletedService(
+        traineeId,
+        examRows[0].id,
+        internship_id,
+      );
+      return res.json({ message: "Quiz completed", quizCompleted: true, data: markResult });
+    }
+
+    return res.json({ message: "No questions available", data: result });
+  }
+
   res.json(result);
 });
 
