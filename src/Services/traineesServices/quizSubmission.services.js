@@ -495,7 +495,8 @@ const getTraineeQuizStatus = async (traineeId, examId) => {
       es.quiz_score,
       es.quiz_submitted_at,
       es.submitted_at,
-      ie.internship_id
+      ie.internship_id,
+      ie.exam_passing_score
     FROM exam_submissions es
     JOIN internship_exams ie ON es.exam_id = ie.id
     WHERE es.trainee_id = ? AND es.exam_id = ?
@@ -509,7 +510,10 @@ const getTraineeQuizStatus = async (traineeId, examId) => {
     return null;
   }
 
-  return result[0];
+  return {
+    ...result[0],
+    passingScore: Number(result[0].exam_passing_score || 0),
+  };
 };
 
 module.exports = {
