@@ -135,10 +135,12 @@ const getQuizScoreSummary = async (traineeId, internshipId) => {
     0,
   );
   const quizScore =
-    totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+    totalQuestions > 0
+      ? Math.round((correctAnswers / totalQuestions) * 100)
+      : 0;
 
-    const passingScore = skills[0].exam_passing_score || 0;
-    const passed = quizScore >= passingScore;
+  const passingScore = skills[0].exam_passing_score || 0;
+  const passed = quizScore >= passingScore;
   return {
     quizScore,
     totalQuestions,
@@ -258,11 +260,7 @@ const submitQuizAnswers = async (
        WHERE ta.trainee_id = ?
          AND q.skill_id = ?
          AND q.internship_id <=> ?`,
-      [
-        traineeId,
-        submittedSkill.skillId,
-        submittedSkill.internshipId,
-      ],
+      [traineeId, submittedSkill.skillId, submittedSkill.internshipId],
     );
 
     if (existingAnswers[0].count > 0) {
@@ -434,11 +432,7 @@ const submitExamSolution = async (
 };
 
 // Mark quiz as completed (after all quiz questions are answered)
-const markQuizCompleted = async (
-  traineeId,
-  examId,
-  internshipId = null,
-) => {
+const markQuizCompleted = async (traineeId, examId, internshipId = null) => {
   const resolvedInternshipId = await getExamInternshipId(examId);
   await ensureInternshipQuestions(resolvedInternshipId);
   const quizScoreSummary = await getQuizScoreSummary(
