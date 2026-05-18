@@ -238,7 +238,7 @@ const updateUserProfile = async (user_id, role, data = {}, fileUrl = null) => {
 
   if (role === "trainee") {
     const [rows] = await db.query(
-      `SELECT id FROM trainees WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT 1`,
+      `SELECT id FROM trainees WHERE id = ? ORDER BY updated_at DESC, id DESC LIMIT 1`,
       [user_id],
     );
     const traineeId = rows[0]?.id;
