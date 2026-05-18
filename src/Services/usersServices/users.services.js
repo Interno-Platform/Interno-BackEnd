@@ -96,14 +96,16 @@ const usersRegister = async (req) => {
 
 const getDataByRole = async (userData) => {
   if (userData.role === "trainee") {
-    const [user] = await db.query("SELECT * FROM trainees WHERE user_id = ?", [
-      userData.id,
-    ]);
+    const [user] = await db.query(
+      "SELECT * FROM trainees WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT 1",
+      [userData.id],
+    );
     return user;
   } else {
-    const [user] = await db.query("SELECT * FROM companies WHERE user_id = ?", [
-      userData.id,
-    ]);
+    const [user] = await db.query(
+      "SELECT * FROM companies WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT 1",
+      [userData.id],
+    );
     return user;
   }
 };
@@ -176,7 +178,7 @@ const updateUserProfile = async (user_id, role, data = {}, fileUrl = null) => {
 
   if (role === "company") {
     const [rows] = await db.query(
-      `SELECT id FROM companies WHERE user_id = ? LIMIT 1`,
+      `SELECT id FROM companies WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT 1`,
       [user_id],
     );
     if (!rows || rows.length === 0) throw createError("company not found", 404);
@@ -236,7 +238,7 @@ const updateUserProfile = async (user_id, role, data = {}, fileUrl = null) => {
 
   if (role === "trainee") {
     const [rows] = await db.query(
-      `SELECT MIN(id) AS id FROM trainees WHERE user_id = ?`,
+      `SELECT id FROM trainees WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT 1`,
       [user_id],
     );
     const traineeId = rows[0]?.id;
@@ -281,6 +283,29 @@ const updateUserProfile = async (user_id, role, data = {}, fileUrl = null) => {
     values.push(traineeId);
     const sql = `UPDATE trainees SET ${updates.join(", ")} WHERE id = ?`;
     await db.execute(sql, values);
+
+    const userUpdates = [];
+    const userValues = [];
+
+    ["name", "email", "phone"].forEach((k) => {
+      if (Object.prototype.hasOwnProperty.call(data, k)) {
+        userUpdates.push(`${k} = ?`);
+        userValues.push(data[k]);
+      }
+    });
+
+    if (fileUrl) {
+      userUpdates.push(`profile_picture = ?`);
+      userValues.push(fileUrl);
+    }
+
+    if (userUpdates.length > 0) {
+      userValues.push(user_id);
+      await db.execute(
+        `UPDATE users SET ${userUpdates.join(", ")} WHERE id = ?`,
+        userValues,
+      );
+    }
 
     const [updated] = await db.query(
       `SELECT * FROM trainees WHERE id = ? LIMIT 1`,
