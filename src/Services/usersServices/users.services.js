@@ -174,11 +174,9 @@ const getAllUsersById = async (id) => {
 };
 
 const updateUserProfile = async (user_id, role, data = {}, fileUrl = null) => {
-  if (!user_id) throw createError("Unauthorized", 401);
-
   if (role === "company") {
     const [rows] = await db.query(
-      `SELECT id FROM companies WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT 1`,
+      `SELECT id FROM companies WHERE id = ? ORDER BY updated_at DESC, id DESC LIMIT 1`,
       [user_id],
     );
     if (!rows || rows.length === 0) throw createError("company not found", 404);
@@ -246,7 +244,6 @@ const updateUserProfile = async (user_id, role, data = {}, fileUrl = null) => {
 
     const allowed = [
       "name",
-      "email",
       "phone",
       "gender",
       "city",
@@ -283,40 +280,6 @@ const updateUserProfile = async (user_id, role, data = {}, fileUrl = null) => {
     values.push(traineeId);
     const sql = `UPDATE trainees SET ${updates.join(", ")} WHERE id = ?`;
     await db.execute(sql, values);
-
-    const userUpdates = [];
-    const userValues = [];
-
-    ["name", "email", "phone"].forEach((k) => {
-      if (Object.prototype.hasOwnProperty.call(data, k)) {
-        userUpdates.push(`${k} = ?`);
-        userValues.push(data[k]);
-      }
-    });
-
-    if (fileUrl) {
-      userUpdates.push(`profile_picture = ?`);
-      userValues.push(fileUrl);
-    }
-
-    if (userUpdates.length > 0) {
-      // If email is being updated, ensure it's not used by another user
-      if (Object.prototype.hasOwnProperty.call(data, "email")) {
-        const [existing] = await db.execute(
-          `SELECT id FROM users WHERE email = ? AND id != ?`,
-          [data.email, user_id],
-        );
-        if (existing && existing.length > 0) {
-          throw createError("email already in use", 400);
-        }
-      }
-
-      userValues.push(user_id);
-      await db.execute(
-        `UPDATE users SET ${userUpdates.join(", ")} WHERE id = ?`,
-        userValues,
-      );
-    }
 
     const [updated] = await db.query(
       `SELECT * FROM trainees WHERE id = ? LIMIT 1`,
