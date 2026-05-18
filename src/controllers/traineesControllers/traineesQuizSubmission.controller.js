@@ -121,6 +121,10 @@ const getTraineeProgressController = asyncHandler(async (req, res) => {
     throw createError("traineeId is required", 400);
   }
 
+  if (Number(traineeId) !== req.user.id) {
+    throw createError("You are not authorized to view the progress of this trainee", 403);
+  }
+
   const progress = await traineesScoresServices.getTraineeProgress(traineeId);
 
   res.json({
