@@ -300,6 +300,17 @@ const updateUserProfile = async (user_id, role, data = {}, fileUrl = null) => {
     }
 
     if (userUpdates.length > 0) {
+      // If email is being updated, ensure it's not used by another user
+      if (Object.prototype.hasOwnProperty.call(data, "email")) {
+        const [existing] = await db.execute(
+          `SELECT id FROM users WHERE email = ? AND id != ?`,
+          [data.email, user_id],
+        );
+        if (existing && existing.length > 0) {
+          throw createError("email already in use", 400);
+        }
+      }
+
       userValues.push(user_id);
       await db.execute(
         `UPDATE users SET ${userUpdates.join(", ")} WHERE id = ?`,
