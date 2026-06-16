@@ -44,7 +44,7 @@ const withAdmin = async (action) => {
   try {
     return await action(admin);
   } finally {
-    await admin.disconnect();
+    await admin.disconnect();    
   }
 };
 
