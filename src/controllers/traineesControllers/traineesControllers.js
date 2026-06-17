@@ -83,7 +83,7 @@ const insertSkills = asyncHandler(async (req, res) => {
   await sendEvent("cv-uploads", {
     traineeId: req.params.trainee_id,
     traineeEmail,
-    fileName: req.file?.originalname ?? null,
+    fileName: cvFileUrl,
     timestamp: new Date().toISOString(),
   });
   res.json(result);
