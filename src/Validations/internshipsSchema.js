@@ -74,9 +74,7 @@ const internshipExamSchema = z.object({
     },
     z.array(z.string()).min(1, "at least one requirement is required"),
   ),
-  expected_input: preprocess("expected_input is required").pipe(
-    z.string().min(10, "expected_input must be at least 10 characters"),
-  ),
+  expected_input: z.string().optional(),
   expected_output: preprocess("expected_output is required").pipe(
     z.string().max(50, "expected_output must be at most 50 characters"),
   ),

@@ -99,9 +99,11 @@ const getTraineeApplications = async (traineeId) => {
   return applications;
 };
 
-// Get applications for a specific company owned by the logged-in company user
-const getInternshipApplications = async (companyId, userId) => {
-  if (!userId) {
+// Get applications for a specific company owned by the logged-in company user.
+// Some issued company tokens carry companies.id while older code expected users.id,
+// so authorization accepts either identifier.
+const getInternshipApplications = async (companyId, authId) => {
+  if (!authId) {
     throw createError("User authentication required", 401);
   }
 
@@ -118,12 +120,12 @@ const getInternshipApplications = async (companyId, userId) => {
     `
       SELECT c.id
       FROM companies c
-      JOIN users u ON u.id = c.user_id
-      WHERE u.id = ?
+      LEFT JOIN users u ON u.id = c.user_id
+      WHERE (c.id = ? OR u.id = ?)
         AND (? IS NULL OR c.id = ?)
       LIMIT 1
     `,
-    [userId, companyIdNumber, companyIdNumber],
+    [authId, authId, companyIdNumber, companyIdNumber],
   );
 
   if (companyRows.length === 0) {
@@ -170,7 +172,7 @@ const getInternshipApplications = async (companyId, userId) => {
     JOIN trainees t ON ia.trainee_id = t.id
     JOIN internships i ON ia.internship_id = i.id
     JOIN companies c ON i.company_id = c.id
-    JOIN users u ON c.user_id = u.id
+    LEFT JOIN users u ON c.user_id = u.id
     LEFT JOIN (
       SELECT
         ie.internship_id,
@@ -197,13 +199,14 @@ const getInternshipApplications = async (companyId, userId) => {
        AND latest_sub.trainee_id = sub.trainee_id
     ) es ON es.internship_id = ia.internship_id AND es.trainee_id = ia.trainee_id
     WHERE c.id = ?
-      AND u.id = ?
+      AND (c.id = ? OR u.id = ?)
     ORDER BY ia.applied_at DESC, ia.id DESC
   `;
 
   const [applications] = await db.query(query, [
     resolvedCompanyId,
-    userId,
+    authId,
+    authId,
   ]);
   return applications;
 };
