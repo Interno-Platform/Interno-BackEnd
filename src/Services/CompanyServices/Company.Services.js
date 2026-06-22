@@ -119,40 +119,39 @@ const addTechnicalExam = async (dataForTechExam) => {
 };
 
 const getInternships = async (user_id, role) => {
-  const params = [user_id || null, user_id || null, "active"];
-
-  let [result] = await db.query(
-    `SELECT 
-      companies.company_name, 
+  let query = `
+    SELECT 
+      companies.company_name,
       internships.*,
 
       CASE WHEN trainee_ctx.id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM internship_applications ia
+        SELECT 1
+        FROM internship_applications ia
         WHERE ia.internship_id = internships.id
-        AND ia.trainee_id = trainee_ctx.id
+          AND ia.trainee_id = trainee_ctx.id
       ) THEN TRUE ELSE FALSE END AS has_apply,
 
       CASE WHEN trainee_ctx.id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM internship_exams ie
+        SELECT 1
+        FROM internship_exams ie
         JOIN exam_submissions es ON es.exam_id = ie.id
         WHERE ie.internship_id = internships.id
-        AND es.trainee_id = trainee_ctx.id
-        AND COALESCE(es.quiz_completed, FALSE) = TRUE
+          AND es.trainee_id = trainee_ctx.id
+          AND COALESCE(es.quiz_completed, FALSE) = TRUE
       ) THEN TRUE ELSE FALSE END AS quiz_completed,
 
       CASE WHEN trainee_ctx.id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM internship_exams ie
+        SELECT 1
+        FROM internship_exams ie
         JOIN exam_submissions es ON es.exam_id = ie.id
         WHERE ie.internship_id = internships.id
-        AND es.trainee_id = trainee_ctx.id
-        AND es.code_solution IS NOT NULL
-        AND TRIM(es.code_solution) <> ''
+          AND es.trainee_id = trainee_ctx.id
+          AND es.code_solution IS NOT NULL
+          AND TRIM(es.code_solution) <> ''
       ) THEN TRUE ELSE FALSE END AS tech_completed
 
     FROM internships
-    JOIN companies ON internships.company_id = companies.id 
-
-    LEFT JOIN companies AS company_ctx ON company_ctx.user_id = ?
+    JOIN companies ON internships.company_id = companies.id
 
     LEFT JOIN (
       SELECT MIN(id) AS id
@@ -161,13 +160,23 @@ const getInternships = async (user_id, role) => {
     ) AS trainee_ctx ON 1 = 1
 
     WHERE internships.status = ?
-    AND (company_ctx.id IS NULL OR internships.company_id = company_ctx.id)
-    `,
-    params,
-  );
+  `;
+
+  const params = [user_id || null, "active"];
+
+  // لو Company شوف تدريبات شركته فقط
+  if (role === "company") {
+    query += `
+      AND internships.company_id = ?
+    `;
+
+    params.push(user_id);
+  }
+
+  const [result] = await db.query(query, params);
 
   if (result.length === 0) {
-    throw createError(`no internships found`, 404);
+    throw createError("no internships found", 404);
   }
 
   return {
@@ -177,9 +186,9 @@ const getInternships = async (user_id, role) => {
       if (role === "trainee") {
         return {
           ...internship,
-          has_apply: !!has_apply,
-          quiz_completed: !!quiz_completed,
-          tech_completed: !!tech_completed,
+          has_apply: Boolean(has_apply),
+          quiz_completed: Boolean(quiz_completed),
+          tech_completed: Boolean(tech_completed),
         };
       }
 
